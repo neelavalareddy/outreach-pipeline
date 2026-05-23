@@ -1,5 +1,20 @@
 import type { Metadata } from "next";
+import { IBM_Plex_Mono, Syne } from "next/font/google";
 import "./globals.css";
+
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
+const syne = Syne({
+  weight: ["700", "800"],
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Outreach Pipeline",
@@ -8,12 +23,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-      </head>
+    <html lang="en" className={`${ibmPlexMono.variable} ${syne.variable}`}>
       <body>{children}</body>
     </html>
   );
