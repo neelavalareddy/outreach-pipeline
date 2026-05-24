@@ -577,7 +577,7 @@ For each company find:
 - Company name, industry, founded year, employee size, revenue range, US location
 - Decision maker contact: name, title, email
 - 3-4 specific automation opportunities (what manual work they're doing that AI can replace today)
-- Automation fit score 1-10 (how urgently they need this)
+- Automation score 1-10 (how urgently they need AI automation — 10 = critical)
 - Short discovery-call outreach email: human-sounding, specific to that company, ask for 20-min call, no pitch deck, no pricing
 
 Target profile: US-based, 20+ years old, 10-200 employees. Good industries: legal/IP publishing, accounting & HR consulting, specialty insurance, title companies, niche B2B media, regional law firms.
@@ -587,7 +587,12 @@ https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F
 
 Each doc should follow the same format as the existing ones in the folder (contact info at top, email draft, notes section at bottom).
 
-Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same folder.`;
+Add a row per company to the spreadsheet "AI Outreach Tracker" in that same folder.
+The spreadsheet columns are (in order):
+Company Name | Industry | Founded | Size | Revenue | Location | Contact Name | Contact Title | Contact Email | Automation Opportunities | Email Doc Link | Status | Last Contacted | Follow-Up Date | Notes | Automation Score
+
+Automation Opportunities should be a single cell with opportunities separated by semicolons.
+Status should be one of: Not Sent, Sent, Replied, Meeting Booked, Closed (default: Not Sent).`;
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(prompt);
