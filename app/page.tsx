@@ -2,122 +2,56 @@
 
 import { useState, useMemo } from "react";
 import {
-  Search, ExternalLink, Mail, Building2,
-  Users, DollarSign, MapPin, Calendar, ChevronDown,
-  CheckSquare, Square, Zap, FolderOpen, Plus,
-  TrendingUp, Clock, RefreshCw, X, Copy, Check,
+  Search, ExternalLink, Mail, Users, DollarSign, MapPin,
+  Calendar, ChevronDown, CheckSquare, Square, Zap, FolderOpen,
+  Plus, TrendingUp, Clock, RefreshCw, X, Copy, Check, ArrowRight,
 } from "lucide-react";
 import { initialCompanies, type Company } from "./data/companies";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<
-  Company["status"],
-  { label: string; dot: string; text: string; bg: string; border: string; bar: string }
-> = {
-  "Not Sent":       { label: "Not Sent",       dot: "#3e3d58", text: "#5a596e", bg: "rgba(62,61,88,0.08)",   border: "rgba(62,61,88,0.25)",   bar: "#232238" },
-  "Sent":           { label: "Sent",            dot: "#f5a623", text: "#f5a623", bg: "rgba(245,166,35,0.1)",  border: "rgba(245,166,35,0.3)",  bar: "#f5a623" },
-  "Replied":        { label: "Replied",         dot: "#a78bfa", text: "#a78bfa", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.3)", bar: "#a78bfa" },
-  "Meeting Booked": { label: "Meeting Booked",  dot: "#10d98a", text: "#10d98a", bg: "rgba(16,217,138,0.1)",  border: "rgba(16,217,138,0.28)", bar: "#10d98a" },
-  "Closed":         { label: "Closed",          dot: "#2a2940", text: "#3e3d58", bg: "rgba(26,26,42,0.4)",    border: "rgba(42,42,58,0.4)",    bar: "#1a1930" },
+type StatusCfg = { text: string; bg: string; border: string; dot: string };
+
+const STATUS: Record<Company["status"], StatusCfg> = {
+  "Not Sent":       { text: "rgba(241,240,250,0.4)",  bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.09)", dot: "rgba(241,240,250,0.28)" },
+  "Sent":           { text: "#fb923c",                 bg: "rgba(251,146,60,0.1)",  border: "rgba(251,146,60,0.25)",  dot: "#fb923c" },
+  "Replied":        { text: "#c084fc",                 bg: "rgba(192,132,252,0.1)", border: "rgba(192,132,252,0.25)", dot: "#c084fc" },
+  "Meeting Booked": { text: "#4ade80",                 bg: "rgba(74,222,128,0.1)",  border: "rgba(74,222,128,0.25)",  dot: "#4ade80" },
+  "Closed":         { text: "rgba(241,240,250,0.28)",  bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)", dot: "rgba(241,240,250,0.2)" },
 };
 
-const scoreColor = (n: number) =>
-  n >= 8 ? "#10d98a" : n >= 6 ? "#f5a623" : "#f87171";
+const PALETTE = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#0ea5e9"];
 
-// ── ScoreArc ──────────────────────────────────────────────────────────────────
+const fitColor = (n: number) => n >= 8 ? "#4ade80" : n >= 6 ? "#fb923c" : "#f87171";
 
-function ScoreArc({ score }: { score: number }) {
-  const r = 17;
-  const sw = 2.5;
-  const c = 2 * Math.PI * r;
-  const offset = c * (1 - score / 10);
-  const col = scoreColor(score);
-  const S = 46;
-  const cx = S / 2;
-
-  return (
-    <div className="relative flex-shrink-0 flex items-center justify-center"
-      style={{ width: S, height: S }}>
-      <svg width={S} height={S} style={{ position: "absolute", transform: "rotate(-90deg)" }}>
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke="#1a1924" strokeWidth={sw} />
-        <circle
-          cx={cx} cy={cx} r={r} fill="none"
-          stroke={col} strokeWidth={sw}
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 0.5s cubic-bezier(.4,0,.2,1)" }}
-        />
-      </svg>
-      <span
-        className="relative z-10 font-display text-[13px] font-bold leading-none"
-        style={{ color: col }}
-      >
-        {score}
-      </span>
-    </div>
-  );
+function hashColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
 }
 
-// ── PipelineBar ───────────────────────────────────────────────────────────────
+// ── StatusPill ────────────────────────────────────────────────────────────────
 
-function PipelineBar({ companies }: { companies: Company[] }) {
-  const total = companies.length;
-  if (!total) return null;
-  const order: Company["status"][] = ["Sent", "Replied", "Meeting Booked", "Not Sent", "Closed"];
-  const segments = order
-    .map((s) => ({ s, n: companies.filter((c) => c.status === s).length }))
-    .filter((x) => x.n > 0);
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex flex-1 h-[3px] rounded-full overflow-hidden gap-px" style={{ background: "#1a1924" }}>
-        {segments.map(({ s, n }) => (
-          <div
-            key={s}
-            title={`${s}: ${n}`}
-            style={{
-              flex: n / total,
-              background: STATUS_CFG[s].bar,
-              transition: "flex 0.5s cubic-bezier(.4,0,.2,1)",
-            }}
-          />
-        ))}
-      </div>
-      <div className="flex items-center gap-3 shrink-0">
-        {segments.map(({ s, n }) => (
-          <span key={s} className="flex items-center gap-1 text-[10px] font-mono" style={{ color: STATUS_CFG[s].text }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_CFG[s].dot }} />
-            {n} {s}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── StatusBadge ───────────────────────────────────────────────────────────────
-
-function StatusBadge({
-  status, onChange,
-}: { status: Company["status"]; onChange: (s: Company["status"]) => void }) {
+function StatusPill({ status, onChange }: {
+  status: Company["status"];
+  onChange: (s: Company["status"]) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const statuses: Company["status"][] = ["Not Sent", "Sent", "Replied", "Meeting Booked", "Closed"];
-  const cfg = STATUS_CFG[status];
+  const all: Company["status"][] = ["Not Sent", "Sent", "Replied", "Meeting Booked", "Closed"];
+  const cfg = STATUS[status];
 
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono cursor-pointer transition-all duration-150"
-        style={{ color: cfg.text, background: cfg.bg, border: `1px solid ${cfg.border}` }}
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer select-none"
+        style={{ color: cfg.text, background: cfg.bg, border: `1px solid ${cfg.border}`, transition: "opacity .15s" }}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
-        {cfg.label}
-        <ChevronDown size={9} style={{ opacity: 0.6, marginLeft: 1 }} />
+        {status}
+        <ChevronDown size={10} style={{ opacity: 0.6 }} />
       </button>
 
       {open && (
@@ -125,27 +59,29 @@ function StatusBadge({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="listbox"
-            className="absolute top-full right-0 mt-2 z-50 rounded-xl overflow-hidden animate-slide-down"
+            className="absolute right-0 top-full mt-2 z-50 rounded-xl overflow-hidden slide-down"
             style={{
-              background: "#0d0e15",
-              border: "1px solid #1f2130",
-              minWidth: 158,
-              boxShadow: "0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03)",
+              background: "var(--surface-2)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              minWidth: 168,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04)",
             }}
           >
-            {statuses.map((s) => {
-              const c = STATUS_CFG[s];
+            {all.map(s => {
+              const c = STATUS[s];
               return (
                 <button
                   key={s}
                   role="option"
                   aria-selected={s === status}
                   onClick={() => { onChange(s); setOpen(false); }}
-                  className="w-full flex items-center gap-2.5 text-left px-3 py-2.5 text-[11px] font-mono cursor-pointer transition-colors hover:bg-white/[0.04]"
-                  style={{ color: c.text }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-left cursor-pointer"
+                  style={{ color: c.text, transition: "background .12s" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: c.dot }} />
-                  {c.label}
+                  {s}
                 </button>
               );
             })}
@@ -158,9 +94,7 @@ function StatusBadge({
 
 // ── CompanyCard ───────────────────────────────────────────────────────────────
 
-function CompanyCard({
-  company, selected, onToggle, onStatusChange,
-}: {
+function CompanyCard({ company, selected, onToggle, onStatusChange }: {
   company: Company;
   selected: boolean;
   onToggle: () => void;
@@ -169,7 +103,8 @@ function CompanyCard({
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const age = new Date().getFullYear() - company.founded;
-  const cfg = STATUS_CFG[company.status];
+  const color = hashColor(company.name);
+  const fc = fitColor(company.automationScore);
 
   const copyEmail = () => {
     navigator.clipboard.writeText(company.contact.email);
@@ -178,171 +113,287 @@ function CompanyCard({
   };
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden transition-all duration-200"
+    <article
+      className="rounded-2xl overflow-hidden"
       style={{
-        background: selected ? "#111219" : "#0d0e15",
-        border: `1px solid ${selected ? "#2e3050" : "#181924"}`,
+        background: "var(--surface)",
+        border: `1px solid ${selected ? "rgba(99,102,241,0.45)" : "var(--border)"}`,
         boxShadow: selected
-          ? "0 0 0 1px rgba(245,166,35,0.15), 0 8px 32px rgba(0,0,0,0.4)"
-          : "0 1px 3px rgba(0,0,0,0.3)",
+          ? "0 0 0 1px rgba(99,102,241,0.18), 0 8px 32px rgba(0,0,0,0.35)"
+          : "0 1px 4px rgba(0,0,0,0.25)",
+        transition: "border-color .2s, box-shadow .2s",
       }}
     >
-      <div className="flex">
-        {/* Status accent bar */}
-        <div
-          className="w-[3px] flex-shrink-0 transition-colors duration-300"
-          style={{ background: cfg.bar }}
-          aria-hidden
-        />
+      <div className="p-5">
 
-        <div className="flex-1 min-w-0 p-4">
-          {/* Header */}
-          <div className="flex items-start gap-3">
-            <button
-              onClick={onToggle}
-              className="mt-0.5 shrink-0 cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded"
-              style={{ color: selected ? "#f5a623" : "#3e3d58" }}
-              aria-label={selected ? `Deselect ${company.name}` : `Select ${company.name}`}
-            >
-              {selected ? <CheckSquare size={16} /> : <Square size={16} />}
-            </button>
+        {/* ── Top row: checkbox + avatar + name + score ── */}
+        <div className="flex items-start gap-3">
 
-            <div className="flex-1 min-w-0">
-              {/* Name + status */}
-              <div className="flex items-start justify-between gap-2 flex-wrap">
-                <div>
-                  <h3
-                    className="font-display font-bold text-[15px] leading-tight"
-                    style={{ color: "#eeedf8", letterSpacing: "-0.02em" }}
-                  >
-                    {company.name}
-                  </h3>
-                  <p className="text-[11px] mt-0.5 font-mono" style={{ color: "#7c7b9e" }}>
-                    {company.industry}
-                  </p>
-                </div>
-                <StatusBadge status={company.status} onChange={onStatusChange} />
-              </div>
-
-              {/* Meta + arc row */}
-              <div className="flex items-end justify-between mt-3 gap-3">
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                  {[
-                    { icon: <MapPin size={10} />, val: company.location },
-                    { icon: <Users size={10} />, val: company.size },
-                    { icon: <DollarSign size={10} />, val: company.revenue },
-                    { icon: <Calendar size={10} />, val: `${company.founded} · ${age}y` },
-                  ].map(({ icon, val }) => (
-                    <span
-                      key={val}
-                      className="flex items-center gap-1 text-[11px] font-mono"
-                      style={{ color: "#6b6a8a" }}
-                    >
-                      <span style={{ color: "#3e3d58" }}>{icon}</span>
-                      {val}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                  <ScoreArc score={company.automationScore} />
-                  <span className="text-[9px] font-mono tracking-widest uppercase" style={{ color: "#3e3d58" }}>
-                    fit
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact block */}
-          <div
-            className="mt-3 ml-7 px-3 py-2.5 rounded-xl flex items-center justify-between gap-2"
-            style={{ background: "#07080d", border: "1px solid #181924" }}
-          >
-            <div className="min-w-0">
-              <p className="text-xs font-mono font-medium truncate" style={{ color: "#eeedf8" }}>
-                {company.contact.name}
-              </p>
-              <p className="text-[10px] font-mono mt-0.5 truncate" style={{ color: "#3e3d58" }}>
-                {company.contact.title}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span
-                className="text-[11px] font-mono truncate max-w-[145px] hidden sm:block"
-                style={{ color: "#f5a623" }}
-              >
-                {company.contact.email}
-              </span>
-              <button
-                onClick={copyEmail}
-                className="p-1.5 rounded-lg cursor-pointer hover:bg-white/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded"
-                style={{ color: copied ? "#10d98a" : "#3e3d58" }}
-                aria-label="Copy email address"
-              >
-                {copied ? <Check size={11} /> : <Copy size={11} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Expand toggle */}
+          {/* Checkbox */}
           <button
-            onClick={() => setExpanded(!expanded)}
-            className="mt-3 ml-7 flex items-center gap-1.5 text-[11px] font-mono cursor-pointer transition-all duration-150 hover:opacity-100 focus-visible:outline-none"
-            style={{ color: expanded ? "#f5a623" : "#3e3d58" }}
-            aria-expanded={expanded}
+            onClick={onToggle}
+            className="mt-1 shrink-0 cursor-pointer"
+            style={{ color: selected ? "#818cf8" : "rgba(241,240,250,0.22)", transition: "color .15s" }}
+            aria-label={selected ? `Deselect ${company.name}` : `Select ${company.name}`}
           >
-            <Zap size={10} />
-            {expanded ? "Hide" : "Show"} automation opportunities ({company.automationOps.length})
-            <ChevronDown
-              size={10}
-              style={{ marginLeft: "auto", transition: "transform 0.2s ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
-            />
+            {selected ? <CheckSquare size={16} /> : <Square size={16} />}
           </button>
 
-          {/* Expanded section */}
-          {expanded && (
-            <div className="mt-2 ml-7 space-y-1.5 animate-fade-in">
-              {company.automationOps.map((op, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-2.5 px-3 py-2 rounded-xl text-[11px] font-mono"
-                  style={{ background: "#07080d", border: "1px solid #181924", color: "#7c7b9e" }}
-                >
-                  <span className="mt-0.5 flex-shrink-0 font-bold" style={{ color: "#f5a623" }}>→</span>
-                  {op}
-                </div>
-              ))}
+          {/* Avatar */}
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
+            style={{
+              background: `${color}18`,
+              color,
+              border: `1px solid ${color}28`,
+              fontSize: 15,
+            }}
+            aria-hidden
+          >
+            {company.name[0].toUpperCase()}
+          </div>
 
-              <div className="flex gap-2 pt-2">
-                <a
-                  href={company.emailDocUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-mono font-medium cursor-pointer transition-all hover:opacity-90 active:scale-[0.98]"
-                  style={{
-                    background: "rgba(245,166,35,0.1)",
-                    color: "#f5a623",
-                    border: "1px solid rgba(245,166,35,0.2)",
-                  }}
+          {/* Name block */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2
+                  className="text-[15px] font-semibold leading-snug truncate"
+                  style={{ color: "var(--text-1)", letterSpacing: "-0.01em" }}
                 >
-                  <Mail size={11} />
-                  View Email Draft
-                </a>
-                <a
-                  href="https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-mono cursor-pointer transition-all hover:opacity-80"
-                  style={{ background: "#07080d", color: "#7c7b9e", border: "1px solid #181924" }}
-                  aria-label="Open Google Drive folder"
-                >
-                  <FolderOpen size={11} />
-                </a>
+                  {company.name}
+                </h2>
+                <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-3)" }}>
+                  {company.industry}
+                </p>
               </div>
+
+              {/* Fit score */}
+              <span
+                className="mono text-xs font-medium shrink-0 px-2 py-0.5 rounded-lg"
+                style={{
+                  color: fc,
+                  background: `${fc}14`,
+                  border: `1px solid ${fc}22`,
+                  marginTop: 1,
+                }}
+                title="Automation fit score"
+              >
+                {company.automationScore}/10
+              </span>
             </div>
-          )}
+
+            {/* Meta row */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5">
+              {([
+                [<MapPin size={11} key="m" />, company.location],
+                [<Users size={11} key="u" />, company.size],
+                [<DollarSign size={11} key="d" />, company.revenue],
+                [<Calendar size={11} key="c" />, `Est. ${company.founded} · ${age}y`],
+              ] as [React.ReactNode, string][]).map(([icon, val]) => (
+                <span
+                  key={val}
+                  className="flex items-center gap-1 text-xs"
+                  style={{ color: "var(--text-3)" }}
+                >
+                  {icon} {val}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* ── Divider ── */}
+        <div
+          style={{ height: 1, background: "var(--border)", margin: "16px 0 16px 52px" }}
+          role="separator"
+        />
+
+        {/* ── Contact ── */}
+        <div className="flex items-center justify-between gap-3" style={{ paddingLeft: 52 }}>
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate" style={{ color: "var(--text-1)" }}>
+              {company.contact.name}
+            </p>
+            <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-3)" }}>
+              {company.contact.title}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className="mono text-xs hidden md:block truncate max-w-[200px]"
+              style={{ color: "#818cf8" }}
+            >
+              {company.contact.email}
+            </span>
+            <button
+              onClick={copyEmail}
+              className="p-1.5 rounded-lg cursor-pointer"
+              style={{
+                color: copied ? "#4ade80" : "var(--text-4)",
+                background: copied ? "rgba(74,222,128,0.1)" : "transparent",
+                border: `1px solid ${copied ? "rgba(74,222,128,0.2)" : "transparent"}`,
+                transition: "all .15s",
+              }}
+              aria-label="Copy email address"
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Divider ── */}
+        <div style={{ height: 1, background: "var(--border)", margin: "16px 0" }} role="separator" />
+
+        {/* ── Bottom bar: status + actions ── */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <StatusPill status={company.status} onChange={onStatusChange} />
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer"
+              style={{
+                color: expanded ? "#818cf8" : "var(--text-3)",
+                background: expanded ? "rgba(99,102,241,0.1)" : "transparent",
+                border: `1px solid ${expanded ? "rgba(99,102,241,0.2)" : "var(--border)"}`,
+                transition: "all .15s",
+              }}
+              aria-expanded={expanded}
+            >
+              <Zap size={11} />
+              {company.automationOps.length} ops
+              <ChevronDown
+                size={10}
+                style={{
+                  transition: "transform .2s ease",
+                  transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              />
+            </button>
+
+            <a
+              href={company.emailDocUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+              style={{
+                color: "#818cf8",
+                background: "var(--indigo-dim)",
+                border: "1px solid var(--indigo-border)",
+                transition: "opacity .15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = ".8")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              <Mail size={11} /> Draft
+            </a>
+
+            <a
+              href="https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg cursor-pointer"
+              style={{ color: "var(--text-3)", border: "1px solid var(--border)", transition: "all .15s" }}
+              aria-label="Open Google Drive folder"
+              onMouseEnter={e => { e.currentTarget.style.color = "var(--text-2)"; e.currentTarget.style.borderColor = "var(--border-mid)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-3)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+            >
+              <FolderOpen size={13} />
+            </a>
+          </div>
+        </div>
+
+        {/* ── Automation ops ── */}
+        {expanded && (
+          <div className="mt-3 space-y-2 fade-up">
+            {company.automationOps.map((op, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 px-3.5 py-2.5 rounded-xl text-sm"
+                style={{
+                  background: "rgba(255,255,255,0.025)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-2)",
+                }}
+              >
+                <ArrowRight size={13} className="shrink-0 mt-0.5" style={{ color: "#6366f1" }} />
+                {op}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// ── StatCard ──────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, icon, accent }: {
+  label: string; value: number; icon: React.ReactNode; accent?: string;
+}) {
+  return (
+    <div
+      className="rounded-2xl p-4 flex flex-col gap-3"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium" style={{ color: "var(--text-3)" }}>{label}</span>
+        <span style={{ color: accent ?? "var(--text-4)" }}>{icon}</span>
+      </div>
+      <span
+        className="text-[2rem] font-bold leading-none tabular-nums"
+        style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ── PipelineBar ───────────────────────────────────────────────────────────────
+
+function PipelineBar({ companies }: { companies: Company[] }) {
+  const total = companies.length;
+  if (!total) return null;
+  const order: Company["status"][] = ["Meeting Booked", "Replied", "Sent", "Not Sent", "Closed"];
+  const segs = order
+    .map(s => ({ s, n: companies.filter(c => c.status === s).length }))
+    .filter(x => x.n > 0);
+
+  return (
+    <div
+      className="rounded-2xl px-5 py-4 flex items-center gap-5"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+    >
+      <span className="text-xs font-medium shrink-0" style={{ color: "var(--text-3)" }}>Pipeline</span>
+      <div
+        className="flex flex-1 h-2 rounded-full overflow-hidden gap-px"
+        style={{ background: "rgba(255,255,255,0.05)" }}
+        role="img"
+        aria-label="Pipeline status distribution"
+      >
+        {segs.map(({ s, n }) => (
+          <div
+            key={s}
+            title={`${s}: ${n}`}
+            style={{
+              flex: n / total,
+              background: STATUS[s].dot,
+              opacity: s === "Closed" || s === "Not Sent" ? 0.35 : 1,
+              transition: "flex .5s ease",
+            }}
+          />
+        ))}
+      </div>
+      <div className="hidden sm:flex items-center gap-4 shrink-0">
+        {segs.map(({ s, n }) => (
+          <span key={s} className="flex items-center gap-1.5 text-xs" style={{ color: STATUS[s].text }}>
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS[s].dot }} />
+            {n} {s}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -354,39 +405,41 @@ export default function Home() {
   const [companies, setCompanies] = useState<Company[]>(initialCompanies);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("All");
-  const [filterScore, setFilterScore] = useState<number>(0);
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterScore, setFilterScore] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
 
   const filtered = useMemo(() =>
-    companies.filter((c) => {
+    companies.filter(c => {
       const q = search.toLowerCase();
-      const matchSearch =
-        !search ||
-        c.name.toLowerCase().includes(q) ||
-        c.industry.toLowerCase().includes(q) ||
-        c.location.toLowerCase().includes(q) ||
-        c.contact.name.toLowerCase().includes(q);
-      return matchSearch && (filterStatus === "All" || c.status === filterStatus) && c.automationScore >= filterScore;
+      return (
+        (!search ||
+          c.name.toLowerCase().includes(q) ||
+          c.industry.toLowerCase().includes(q) ||
+          c.location.toLowerCase().includes(q) ||
+          c.contact.name.toLowerCase().includes(q)) &&
+        (filterStatus === "All" || c.status === filterStatus) &&
+        c.automationScore >= filterScore
+      );
     }),
     [companies, search, filterStatus, filterScore]
   );
 
   const toggleSelect = (id: string) =>
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const selectAll = () =>
     setSelected(
       selected.size === filtered.length && filtered.length > 0
         ? new Set()
-        : new Set(filtered.map((c) => c.id))
+        : new Set(filtered.map(c => c.id))
     );
 
   const updateStatus = (id: string, status: Company["status"]) =>
-    setCompanies((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)));
+    setCompanies(p => p.map(c => c.id === id ? { ...c, status } : c));
 
-  const claudePrompt = `Research 5 new companies for my AI automation outreach pipeline and add them to my Google Drive folder.
+  const prompt = `Research 5 new companies for my AI automation outreach pipeline and add them to my Google Drive folder.
 
 For each company find:
 - Company name, industry, founded year, employee size, revenue range, US location
@@ -405,233 +458,224 @@ Each doc should follow the same format as the existing ones in the folder (conta
 Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same folder.`;
 
   const copyPrompt = () => {
-    navigator.clipboard.writeText(claudePrompt);
+    navigator.clipboard.writeText(prompt);
     setPromptCopied(true);
     setTimeout(() => setPromptCopied(false), 2000);
   };
 
   const stats = {
-    total: companies.length,
-    notSent: companies.filter((c) => c.status === "Not Sent").length,
-    sent: companies.filter((c) => c.status === "Sent").length,
-    meetings: companies.filter((c) => c.status === "Meeting Booked").length,
-    highFit: companies.filter((c) => c.automationScore >= 8).length,
+    total:    companies.length,
+    notSent:  companies.filter(c => c.status === "Not Sent").length,
+    sent:     companies.filter(c => c.status === "Sent").length,
+    meetings: companies.filter(c => c.status === "Meeting Booked").length,
+    highFit:  companies.filter(c => c.automationScore >= 8).length,
   };
 
   return (
     <div className="min-h-dvh" style={{ background: "var(--bg)", position: "relative", zIndex: 1 }}>
 
-      {/* ── Topbar ── */}
+      {/* ── Header ── */}
       <header
         className="sticky top-0 z-40"
         style={{
-          background: "rgba(7,8,13,0.90)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid #181924",
+          background: "rgba(8,8,16,0.85)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
-          {/* Logo */}
+        <div className="max-w-7xl mx-auto px-6 h-[58px] flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
               style={{
-                background: "linear-gradient(135deg, #f5a623 0%, #f0b429 100%)",
-                boxShadow: "0 0 20px rgba(245,166,35,0.4)",
+                background: "linear-gradient(135deg, #6366f1, #818cf8)",
+                boxShadow: "0 0 22px rgba(99,102,241,0.45)",
               }}
             >
-              <Zap size={14} color="#07080d" strokeWidth={2.5} aria-hidden />
+              <Zap size={15} color="white" strokeWidth={2.5} aria-hidden />
             </div>
-            <div>
-              <h1
-                className="font-display font-bold text-sm leading-none"
-                style={{ color: "#eeedf8", letterSpacing: "-0.025em" }}
-              >
-                Outreach Pipeline
-              </h1>
-              <p className="text-[10px] font-mono mt-0.5" style={{ color: "#3e3d58" }}>
-                AI Automation Sales
-              </p>
-            </div>
+            <span
+              className="text-[15px] font-semibold"
+              style={{ color: "var(--text-1)", letterSpacing: "-0.015em" }}
+            >
+              Outreach Pipeline
+            </span>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
               <span
-                className="px-3 py-1.5 rounded-lg text-[11px] font-mono"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
                 style={{
-                  background: "rgba(245,166,35,0.1)",
-                  border: "1px solid rgba(245,166,35,0.2)",
-                  color: "#f5a623",
+                  background: "var(--indigo-dim)",
+                  border: "1px solid var(--indigo-border)",
+                  color: "#818cf8",
                 }}
               >
                 {selected.size} selected
               </span>
             )}
-            <button
-              onClick={() => setShowPrompt(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-medium cursor-pointer transition-all hover:opacity-90 active:scale-[0.97]"
-              style={{ background: "#f5a623", color: "#07080d" }}
-            >
-              <Plus size={12} strokeWidth={2.5} />
-              Research Companies
-            </button>
             <a
               href="https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono cursor-pointer transition-all hover:opacity-80"
-              style={{ background: "#0d0e15", color: "#7c7b9e", border: "1px solid #181924" }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer"
+              style={{
+                color: "var(--text-2)",
+                border: "1px solid var(--border)",
+                transition: "background .15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
-              <FolderOpen size={12} />
+              <FolderOpen size={14} />
               <span className="hidden sm:inline">Drive</span>
             </a>
+            <button
+              onClick={() => setShowPrompt(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+              style={{
+                background: "linear-gradient(135deg, #6366f1, #818cf8)",
+                color: "white",
+                boxShadow: "0 2px 12px rgba(99,102,241,0.35)",
+                transition: "opacity .15s, transform .15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = ".9")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              Research
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-5 py-6 space-y-5">
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-5">
 
-        {/* ── Pipeline health bar ── */}
-        <PipelineBar companies={companies} />
-
-        {/* ── Stats grid ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {([
-            { label: "Total",    val: stats.total,    icon: <Building2 size={12} />, accent: "#7c7b9e" },
-            { label: "Queued",   val: stats.notSent,  icon: <Clock size={12} />,     accent: "#3e3d58" },
-            { label: "Sent",     val: stats.sent,     icon: <Mail size={12} />,      accent: "#f5a623" },
-            { label: "Meetings", val: stats.meetings, icon: <Calendar size={12} />,  accent: "#10d98a" },
-            { label: "High Fit", val: stats.highFit,  icon: <TrendingUp size={12} />,accent: "#10d98a" },
-          ] as const).map(({ label, val, icon, accent }) => (
-            <div
-              key={label}
-              className="rounded-2xl p-4"
-              style={{ background: "#0d0e15", border: "1px solid #181924" }}
-            >
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <span style={{ color: accent }}>{icon}</span>
-                <span
-                  className="text-[10px] font-mono uppercase tracking-wider"
-                  style={{ color: "#3e3d58" }}
-                >
-                  {label}
-                </span>
-              </div>
-              <p
-                className="font-display font-bold leading-none"
-                style={{ color: "#eeedf8", fontSize: "clamp(1.75rem, 4vw, 2.25rem)" }}
-              >
-                {val}
-              </p>
-            </div>
-          ))}
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <StatCard label="Total"    value={stats.total}    icon={<TrendingUp size={14} />} />
+          <StatCard label="Queued"   value={stats.notSent}  icon={<Clock size={14} />} />
+          <StatCard label="Sent"     value={stats.sent}     icon={<Mail size={14} />}     accent="#fb923c" />
+          <StatCard label="Meetings" value={stats.meetings} icon={<Calendar size={14} />} accent="#4ade80" />
+          <StatCard label="High Fit" value={stats.highFit}  icon={<Zap size={14} />}      accent="#818cf8" />
         </div>
 
-        {/* ── Filters ── */}
+        {/* ── Pipeline bar ── */}
+        <PipelineBar companies={companies} />
+
+        {/* ── Filter bar ── */}
         <div
-          className="rounded-2xl p-3 flex flex-wrap gap-2 items-center"
-          style={{ background: "#0d0e15", border: "1px solid #181924" }}
+          className="rounded-2xl p-2.5 flex flex-wrap items-center gap-2"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
         >
-          {/* Search */}
-          <div
-            className="flex items-center gap-2 flex-1 min-w-52 px-3 py-2 rounded-xl"
-            style={{ background: "#07080d", border: "1px solid #181924" }}
+          {/* Search input */}
+          <label
+            className="flex items-center gap-2.5 flex-1 min-w-[220px] px-3.5 py-2.5 rounded-xl cursor-text"
+            style={{ background: "var(--input)", border: "1px solid var(--border)" }}
           >
-            <Search size={12} style={{ color: "#3e3d58", flexShrink: 0 }} aria-hidden />
+            <Search size={13} style={{ color: "var(--text-4)", flexShrink: 0 }} aria-hidden />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search companies, industries, contacts…"
-              className="bg-transparent text-xs flex-1 outline-none font-mono"
-              style={{ color: "#eeedf8" }}
-              aria-label="Search companies"
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search companies, contacts…"
+              className="bg-transparent text-sm flex-1 outline-none"
+              style={{ color: "var(--text-1)" }}
+              aria-label="Search"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="cursor-pointer transition-colors hover:opacity-70"
-                style={{ color: "#3e3d58" }}
+                style={{ color: "var(--text-3)" }}
                 aria-label="Clear search"
               >
-                <X size={10} />
+                <X size={12} />
               </button>
             )}
-          </div>
+          </label>
 
-          {/* Status */}
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="text-[11px] font-mono outline-none px-2.5 py-2 rounded-xl cursor-pointer"
-            style={{ background: "#07080d", border: "1px solid #181924", color: "#7c7b9e" }}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="text-sm px-3 py-2.5 rounded-xl outline-none cursor-pointer"
+            style={{
+              background: "var(--input)",
+              border: "1px solid var(--border)",
+              color: "var(--text-2)",
+            }}
             aria-label="Filter by status"
           >
-            {["All", "Not Sent", "Sent", "Replied", "Meeting Booked", "Closed"].map((s) => (
-              <option key={s} value={s} style={{ background: "#0d0e15" }}>{s}</option>
+            {["All", "Not Sent", "Sent", "Replied", "Meeting Booked", "Closed"].map(s => (
+              <option key={s} value={s} style={{ background: "var(--surface-2)" }}>{s}</option>
             ))}
           </select>
 
-          {/* Score */}
           <select
             value={filterScore}
-            onChange={(e) => setFilterScore(Number(e.target.value))}
-            className="text-[11px] font-mono outline-none px-2.5 py-2 rounded-xl cursor-pointer"
-            style={{ background: "#07080d", border: "1px solid #181924", color: "#7c7b9e" }}
+            onChange={e => setFilterScore(Number(e.target.value))}
+            className="text-sm px-3 py-2.5 rounded-xl outline-none cursor-pointer"
+            style={{
+              background: "var(--input)",
+              border: "1px solid var(--border)",
+              color: "var(--text-2)",
+            }}
             aria-label="Filter by fit score"
           >
-            <option value={0}  style={{ background: "#0d0e15" }}>Any fit</option>
-            <option value={7}  style={{ background: "#0d0e15" }}>7+ fit</option>
-            <option value={8}  style={{ background: "#0d0e15" }}>8+ fit</option>
-            <option value={9}  style={{ background: "#0d0e15" }}>9+ fit</option>
+            <option value={0} style={{ background: "var(--surface-2)" }}>Any fit score</option>
+            <option value={7} style={{ background: "var(--surface-2)" }}>7+ fit</option>
+            <option value={8} style={{ background: "var(--surface-2)" }}>8+ fit</option>
+            <option value={9} style={{ background: "var(--surface-2)" }}>9+ fit</option>
           </select>
 
-          {/* Select all */}
           <button
             onClick={selectAll}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-mono cursor-pointer hover:opacity-80 transition-all"
-            style={{ background: "#07080d", color: "#7c7b9e", border: "1px solid #181924" }}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer"
+            style={{
+              color: "var(--text-3)",
+              border: "1px solid var(--border)",
+              transition: "background .15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
             {selected.size === filtered.length && filtered.length > 0
-              ? <CheckSquare size={11} />
-              : <Square size={11} />}
+              ? <CheckSquare size={13} />
+              : <Square size={13} />}
             {selected.size === filtered.length && filtered.length > 0 ? "Deselect all" : "Select all"}
           </button>
 
-          <span className="ml-auto text-[11px] font-mono" style={{ color: "#3e3d58" }}>
-            {filtered.length}
-            <span style={{ color: "#1f2130" }}> / </span>
-            {companies.length}
-          </span>
+          <p className="ml-auto text-xs" style={{ color: "var(--text-4)" }}>
+            {filtered.length} of {companies.length} companies
+          </p>
         </div>
 
-        {/* ── Cards ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {filtered.map((c) => (
+        {/* ── Card grid ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filtered.map(c => (
             <CompanyCard
               key={c.id}
               company={c}
               selected={selected.has(c.id)}
               onToggle={() => toggleSelect(c.id)}
-              onStatusChange={(s) => updateStatus(c.id, s)}
+              onStatusChange={s => updateStatus(c.id, s)}
             />
           ))}
         </div>
 
         {/* ── Empty state ── */}
         {filtered.length === 0 && (
-          <div className="text-center py-24 animate-fade-in">
+          <div className="flex flex-col items-center py-24 gap-4 fade-up">
             <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: "#0d0e15", border: "1px solid #181924" }}
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
             >
-              <Search size={20} style={{ color: "#3e3d58" }} aria-hidden />
+              <Search size={22} style={{ color: "var(--text-4)" }} aria-hidden />
             </div>
-            <p className="text-sm font-mono" style={{ color: "#3e3d58" }}>
-              No companies match your filters
-            </p>
+            <div className="text-center">
+              <p className="text-sm font-medium" style={{ color: "var(--text-3)" }}>No companies found</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-4)" }}>Try adjusting your search or filters</p>
+            </div>
           </div>
         )}
       </main>
@@ -639,92 +683,101 @@ Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same
       {/* ── Research modal ── */}
       {showPrompt && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
-          onClick={(e) => e.target === e.currentTarget && setShowPrompt(false)}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
+          onClick={e => e.target === e.currentTarget && setShowPrompt(false)}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
         >
           <div
-            className="w-full max-w-2xl rounded-2xl p-6 space-y-4 animate-scale-in"
+            className="w-full max-w-xl rounded-2xl p-6 space-y-4 scale-in"
             style={{
-              background: "#0d0e15",
-              border: "1px solid #1f2130",
-              boxShadow: "0 32px 80px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.03)",
+              background: "var(--surface)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
             }}
           >
-            {/* Modal header */}
+            {/* Header */}
             <div className="flex items-start justify-between">
               <div>
                 <h2
                   id="modal-title"
-                  className="font-display font-bold text-base"
-                  style={{ color: "#eeedf8", letterSpacing: "-0.025em" }}
+                  className="text-base font-semibold"
+                  style={{ color: "var(--text-1)", letterSpacing: "-0.01em" }}
                 >
                   Research New Companies
                 </h2>
-                <p className="text-[11px] font-mono mt-1" style={{ color: "#7c7b9e" }}>
-                  Copy → paste into Claude → Claude researches + adds to your Drive folder
+                <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>
+                  Copy prompt → paste into Claude → Claude handles the rest automatically
                 </p>
               </div>
               <button
                 onClick={() => setShowPrompt(false)}
-                className="p-1.5 rounded-lg cursor-pointer hover:bg-white/5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded"
-                style={{ color: "#3e3d58" }}
-                aria-label="Close modal"
+                className="p-1.5 rounded-lg cursor-pointer"
+                style={{ color: "var(--text-3)", transition: "background .15s" }}
+                aria-label="Close"
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             </div>
 
             {/* Prompt text */}
-            <div
-              className="rounded-xl p-4 text-[11px] font-mono leading-relaxed max-h-56 overflow-y-auto"
+            <pre
+              className="mono text-xs leading-relaxed rounded-xl p-4 overflow-y-auto"
               style={{
-                background: "#07080d",
-                border: "1px solid #181924",
-                color: "#7c7b9e",
+                background: "var(--input)",
+                border: "1px solid var(--border)",
+                color: "var(--text-2)",
                 whiteSpace: "pre-wrap",
+                maxHeight: 220,
               }}
             >
-              {claudePrompt}
-            </div>
+              {prompt}
+            </pre>
 
-            {/* Action buttons */}
-            <div className="flex gap-3">
+            {/* Actions */}
+            <div className="flex gap-2.5">
               <button
                 onClick={copyPrompt}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-mono font-medium cursor-pointer transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{ background: "#f5a623", color: "#07080d" }}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold cursor-pointer"
+                style={{
+                  background: "linear-gradient(135deg, #6366f1, #818cf8)",
+                  color: "white",
+                  transition: "opacity .15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = ".9")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
               >
-                {promptCopied
-                  ? <><Check size={14} /> Copied!</>
-                  : <><Copy size={14} /> Copy Prompt</>}
+                {promptCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy Prompt</>}
               </button>
               <a
                 href="https://claude.ai"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-mono cursor-pointer transition-all hover:opacity-80"
-                style={{ background: "#07080d", color: "#7c7b9e", border: "1px solid #181924" }}
+                className="flex items-center justify-center gap-2 px-5 rounded-xl text-sm font-medium cursor-pointer"
+                style={{
+                  color: "var(--text-2)",
+                  border: "1px solid var(--border)",
+                  transition: "background .15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                <ExternalLink size={14} />
-                Open Claude
+                <ExternalLink size={14} /> Claude
               </a>
             </div>
 
-            {/* Info banner */}
+            {/* Info */}
             <div
-              className="rounded-xl p-3 flex items-start gap-2.5"
-              style={{
-                background: "rgba(16,217,138,0.05)",
-                border: "1px solid rgba(16,217,138,0.12)",
-              }}
+              className="flex items-start gap-3 p-3.5 rounded-xl"
+              style={{ background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.14)" }}
             >
-              <RefreshCw size={11} className="mt-0.5 flex-shrink-0" style={{ color: "#10d98a" }} aria-hidden />
-              <p className="text-[11px] font-mono leading-relaxed" style={{ color: "#10d98a", opacity: 0.85 }}>
-                Claude will research the companies, write emails, create Drive docs, and update the spreadsheet.
+              <RefreshCw size={12} className="shrink-0 mt-0.5" style={{ color: "#4ade80" }} aria-hidden />
+              <p className="text-xs leading-relaxed" style={{ color: "rgba(74,222,128,0.8)" }}>
+                Claude will research companies, write personalized emails, create Drive docs, and update the Outreach Tracker spreadsheet.
               </p>
             </div>
           </div>

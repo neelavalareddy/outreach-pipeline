@@ -1,114 +1,105 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #07080d;
-  --bg-card: #0d0e15;
-  --bg-card-hover: #111219;
-  --bg-elevated: #141520;
-  --bg-deep: #040508;
+  --bg:        #080810;
+  --surface:   #0f0f1a;
+  --surface-2: #161626;
+  --surface-3: #1d1d32;
+  --input:     #0b0b14;
 
-  --border: #181924;
-  --border-mid: #1f2130;
-  --border-active: #2e3050;
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-mid:    rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 255, 255, 0.18);
 
-  --amber: #f5a623;
-  --amber-bright: #fbbf24;
-  --amber-dim: rgba(245, 166, 35, 0.1);
-  --amber-glow: rgba(245, 166, 35, 0.28);
+  --text-1: #f1f0fa;
+  --text-2: rgba(241, 240, 250, 0.55);
+  --text-3: rgba(241, 240, 250, 0.32);
+  --text-4: rgba(241, 240, 250, 0.18);
 
-  --green: #10d98a;
-  --green-dim: rgba(16, 217, 138, 0.08);
+  --indigo:        #6366f1;
+  --indigo-light:  #818cf8;
+  --indigo-dim:    rgba(99, 102, 241, 0.12);
+  --indigo-border: rgba(99, 102, 241, 0.28);
+  --indigo-glow:   rgba(99, 102, 241, 0.22);
 
-  --violet: #a78bfa;
-  --violet-dim: rgba(167, 139, 250, 0.1);
-
-  --red: #f87171;
-  --red-dim: rgba(248, 113, 113, 0.1);
-
-  --text-primary: #eeedf8;
-  --text-secondary: #7c7b9e;
-  --text-muted: #3e3d58;
-  --text-ultra-muted: #252438;
+  --green:  #4ade80;
+  --amber:  #fb923c;
+  --violet: #c084fc;
+  --red:    #f87171;
+  --sky:    #38bdf8;
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
   background: var(--bg);
-  color: var(--text-primary);
-  font-family: var(--font-mono), monospace;
+  color: var(--text-1);
+  font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100vh;
+  line-height: 1.6;
 }
 
-.font-display {
-  font-family: var(--font-display), sans-serif;
+.mono {
+  font-family: var(--font-mono), monospace;
 }
 
-/* Ambient glow at top of page */
+/* Top ambient glow */
 body::before {
   content: '';
   position: fixed;
-  top: -200px;
+  top: -400px;
   left: 50%;
   transform: translateX(-50%);
-  width: 800px;
-  height: 400px;
-  background: radial-gradient(ellipse at center, rgba(245, 166, 35, 0.04) 0%, transparent 70%);
+  width: 1200px;
+  height: 700px;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    rgba(99, 102, 241, 0.055) 0%,
+    transparent 60%
+  );
   pointer-events: none;
   z-index: 0;
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-active);
-  border-radius: 2px;
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
 
-::selection {
-  background: var(--amber-dim);
-  color: var(--text-primary);
-}
+::selection { background: rgba(99,102,241,0.3); color: var(--text-1); }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
 }
-
-@keyframes slide-down {
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+@keyframes slideDown {
   from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
 
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.2s ease forwards;
-}
-
-.animate-slide-down {
-  animation: slide-down 0.18s ease forwards;
-}
-
-.animate-scale-in {
-  animation: scale-in 0.2s ease forwards;
-}
+.fade-up    { animation: fadeUp    0.24s cubic-bezier(.16,1,.3,1) both; }
+.fade-in    { animation: fadeIn    0.18s ease both; }
+.scale-in   { animation: scaleIn   0.24s cubic-bezier(.16,1,.3,1) both; }
+.slide-down { animation: slideDown 0.18s ease both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in,
-  .animate-slide-down,
-  .animate-scale-in {
-    animation: none;
-  }
+  .fade-up, .fade-in, .scale-in, .slide-down { animation: none; }
 }
