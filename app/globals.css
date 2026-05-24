@@ -1,32 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --bg:        #080810;
-  --surface:   #0f0f1a;
-  --surface-2: #161626;
-  --surface-3: #1d1d32;
-  --input:     #0b0b14;
+  /* ── Navy surfaces ── */
+  --bg:        #070c20;
+  --surface:   #0d1530;
+  --surface-2: #131d3f;
+  --surface-3: #1a2550;
 
+  /* ── Borders ── */
   --border:        rgba(255, 255, 255, 0.07);
-  --border-mid:    rgba(255, 255, 255, 0.11);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  --border-mid:    rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.20);
 
-  --text-1: #f1f0fa;
-  --text-2: rgba(241, 240, 250, 0.55);
-  --text-3: rgba(241, 240, 250, 0.32);
-  --text-4: rgba(241, 240, 250, 0.18);
+  /* ── Text ── */
+  --text-1: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.62);
+  --text-3: rgba(255, 255, 255, 0.38);
+  --text-4: rgba(255, 255, 255, 0.20);
 
-  --indigo:        #6366f1;
-  --indigo-light:  #818cf8;
-  --indigo-dim:    rgba(99, 102, 241, 0.12);
-  --indigo-border: rgba(99, 102, 241, 0.28);
-  --indigo-glow:   rgba(99, 102, 241, 0.22);
+  /* ── Brand blue ── */
+  --blue:        #4361ee;
+  --blue-light:  #738ef5;
+  --blue-dim:    rgba(67, 97, 238, 0.15);
+  --blue-border: rgba(67, 97, 238, 0.35);
+  --blue-glow:   rgba(67, 97, 238, 0.25);
 
-  --green:  #4ade80;
-  --amber:  #fb923c;
+  /* ── Semantic ── */
+  --green:  #2ed573;
+  --amber:  #ffa502;
+  --red:    #ff4757;
   --violet: #c084fc;
-  --red:    #f87171;
-  --sky:    #38bdf8;
 }
 
 *, *::before, *::after {
@@ -45,61 +48,73 @@ body {
   color: var(--text-1);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100vh;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 .mono {
   font-family: var(--font-mono), monospace;
 }
 
-/* Top ambient glow */
+/* Ambient blue glow top-center */
 body::before {
   content: '';
   position: fixed;
-  top: -400px;
+  top: -300px;
   left: 50%;
   transform: translateX(-50%);
-  width: 1200px;
-  height: 700px;
+  width: 900px;
+  height: 600px;
   background: radial-gradient(
-    ellipse at 50% 30%,
-    rgba(99, 102, 241, 0.055) 0%,
-    transparent 60%
+    ellipse at 50% 20%,
+    rgba(67, 97, 238, 0.10) 0%,
+    transparent 65%
   );
   pointer-events: none;
   z-index: 0;
 }
 
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
 
-::selection { background: rgba(99,102,241,0.3); color: var(--text-1); }
+::selection { background: rgba(67,97,238,0.35); color: #fff; }
 
 /* ── Animations ── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.96) translateY(6px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
-.fade-up    { animation: fadeUp    0.24s cubic-bezier(.16,1,.3,1) both; }
+.fade-up    { animation: fadeUp    0.25s cubic-bezier(.16,1,.3,1) both; }
 .fade-in    { animation: fadeIn    0.18s ease both; }
-.scale-in   { animation: scaleIn   0.24s cubic-bezier(.16,1,.3,1) both; }
+.scale-in   { animation: scaleIn   0.25s cubic-bezier(.16,1,.3,1) both; }
 .slide-down { animation: slideDown 0.18s ease both; }
+.pulse-dot  { animation: pulse 2s ease-in-out infinite; }
+.spin       { animation: spin 1s linear infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .fade-up, .fade-in, .scale-in, .slide-down { animation: none; }
+  .fade-up, .fade-in, .scale-in, .slide-down, .pulse-dot, .spin {
+    animation: none;
+  }
 }

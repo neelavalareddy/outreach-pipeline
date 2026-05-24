@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search, ExternalLink, Mail, Users, DollarSign, MapPin,
   Calendar, ChevronDown, CheckSquare, Square, Zap, FolderOpen,
@@ -8,29 +8,86 @@ import {
 } from "lucide-react";
 import { initialCompanies, type Company } from "./data/companies";
 
-// ── Config ────────────────────────────────────────────────────────────────────
+// ── Status config ─────────────────────────────────────────────────────────────
 
-type StatusCfg = { text: string; bg: string; border: string; dot: string };
+type SCfg = { text: string; bg: string; border: string; dot: string };
 
-const STATUS: Record<Company["status"], StatusCfg> = {
-  "Not Sent":       { text: "rgba(241,240,250,0.4)",  bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.09)", dot: "rgba(241,240,250,0.28)" },
-  "Sent":           { text: "#fb923c",                 bg: "rgba(251,146,60,0.1)",  border: "rgba(251,146,60,0.25)",  dot: "#fb923c" },
-  "Replied":        { text: "#c084fc",                 bg: "rgba(192,132,252,0.1)", border: "rgba(192,132,252,0.25)", dot: "#c084fc" },
-  "Meeting Booked": { text: "#4ade80",                 bg: "rgba(74,222,128,0.1)",  border: "rgba(74,222,128,0.25)",  dot: "#4ade80" },
-  "Closed":         { text: "rgba(241,240,250,0.28)",  bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)", dot: "rgba(241,240,250,0.2)" },
+const STATUS: Record<Company["status"], SCfg> = {
+  "Not Sent":       { text: "rgba(255,255,255,0.38)", bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.10)", dot: "rgba(255,255,255,0.3)"  },
+  "Sent":           { text: "#ffa502",                bg: "rgba(255,165,2,0.12)",   border: "rgba(255,165,2,0.28)",   dot: "#ffa502" },
+  "Replied":        { text: "#c084fc",                bg: "rgba(192,132,252,0.12)", border: "rgba(192,132,252,0.28)", dot: "#c084fc" },
+  "Meeting Booked": { text: "#2ed573",                bg: "rgba(46,213,115,0.12)",  border: "rgba(46,213,115,0.28)",  dot: "#2ed573" },
+  "Closed":         { text: "rgba(255,255,255,0.25)", bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)", dot: "rgba(255,255,255,0.18)" },
 };
 
-const PALETTE = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#0ea5e9"];
+const PALETTE = ["#4361ee","#7c3aed","#ec4899","#f59e0b","#2ed573","#0ea5e9","#ef4444","#8b5cf6"];
 
-const fitColor = (n: number) => n >= 8 ? "#4ade80" : n >= 6 ? "#fb923c" : "#f87171";
+const fitColor = (n: number) => n >= 8 ? "#2ed573" : n >= 6 ? "#ffa502" : "#ff4757";
 
-function hashColor(name: string): string {
+function hashColor(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];
 }
 
-// ── StatusPill ────────────────────────────────────────────────────────────────
+// ── Score gauge (large circular arc) ─────────────────────────────────────────
+
+function ScoreGauge({ score, label }: { score: number; label: string }) {
+  const SIZE = 160;
+  const CX   = SIZE / 2;
+  const R    = 62;
+  const SW   = 11;
+  // 240° arc: starts at 150° (bottom-left), ends at 30° (bottom-right)
+  const GAP  = Math.PI / 6;                     // 30° gap at bottom
+  const TOTAL= 2 * Math.PI - 2 * GAP;           // 300° of arc
+  const circ = 2 * Math.PI * R;
+  const arcLen   = (TOTAL / (2 * Math.PI)) * circ;
+  const fillLen  = (score / 10) * arcLen;
+  const dashArr  = `${fillLen} ${circ - fillLen}`;
+  const rotation = 90 + (GAP * 180) / Math.PI;  // start angle in degrees
+  const col = fitColor(score);
+  const label2 = score >= 8 ? "High Fit" : score >= 6 ? "Medium Fit" : "Low Fit";
+
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <div className="relative" style={{ width: SIZE, height: SIZE }}>
+        <svg
+          width={SIZE} height={SIZE}
+          style={{ transform: `rotate(${rotation}deg)`, position: "absolute", top: 0, left: 0 }}
+        >
+          {/* Track */}
+          <circle
+            cx={CX} cy={CX} r={R}
+            fill="none"
+            stroke="rgba(255,255,255,0.07)"
+            strokeWidth={SW}
+            strokeDasharray={`${arcLen} ${circ - arcLen}`}
+            strokeLinecap="round"
+          />
+          {/* Fill */}
+          <circle
+            cx={CX} cy={CX} r={R}
+            fill="none"
+            stroke={col}
+            strokeWidth={SW}
+            strokeDasharray={dashArr}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dasharray 0.7s cubic-bezier(.16,1,.3,1)", filter: `drop-shadow(0 0 8px ${col}66)` }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+          <span className="text-[42px] font-bold leading-none" style={{ color: "#fff" }}>
+            {score.toFixed(1)}
+          </span>
+          <span className="text-xs font-medium" style={{ color: col }}>{label2}</span>
+        </div>
+      </div>
+      <span className="text-xs mt-1 font-medium" style={{ color: "rgba(255,255,255,0.38)" }}>{label}</span>
+    </div>
+  );
+}
+
+// ── Status pill + dropdown ────────────────────────────────────────────────────
 
 function StatusPill({ status, onChange }: {
   status: Company["status"];
@@ -44,12 +101,12 @@ function StatusPill({ status, onChange }: {
     <div className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer select-none"
-        style={{ color: cfg.text, background: cfg.bg, border: `1px solid ${cfg.border}`, transition: "opacity .15s" }}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer"
+        style={{ color: cfg.text, background: cfg.bg, border: `1px solid ${cfg.border}` }}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dot }} />
         {status}
         <ChevronDown size={10} style={{ opacity: 0.6 }} />
       </button>
@@ -59,12 +116,12 @@ function StatusPill({ status, onChange }: {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="listbox"
-            className="absolute right-0 top-full mt-2 z-50 rounded-xl overflow-hidden slide-down"
+            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden slide-down"
             style={{
-              background: "var(--surface-2)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              minWidth: 168,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04)",
+              background: "var(--surface-3)",
+              border: "1px solid var(--border-mid)",
+              minWidth: 172,
+              boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
             }}
           >
             {all.map(s => {
@@ -75,12 +132,12 @@ function StatusPill({ status, onChange }: {
                   role="option"
                   aria-selected={s === status}
                   onClick={() => { onChange(s); setOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-left cursor-pointer"
-                  style={{ color: c.text, transition: "background .12s" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-left cursor-pointer"
+                  style={{ color: c.text }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: c.dot }} />
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c.dot }} />
                   {s}
                 </button>
               );
@@ -92,7 +149,7 @@ function StatusPill({ status, onChange }: {
   );
 }
 
-// ── CompanyCard ───────────────────────────────────────────────────────────────
+// ── Company card ──────────────────────────────────────────────────────────────
 
 function CompanyCard({ company, selected, onToggle, onStatusChange }: {
   company: Company;
@@ -102,9 +159,9 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const age = new Date().getFullYear() - company.founded;
+  const age  = new Date().getFullYear() - company.founded;
   const color = hashColor(company.name);
-  const fc = fitColor(company.automationScore);
+  const fc    = fitColor(company.automationScore);
 
   const copyEmail = () => {
     navigator.clipboard.writeText(company.contact.email);
@@ -114,26 +171,22 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
 
   return (
     <article
-      className="rounded-2xl overflow-hidden"
       style={{
-        background: "var(--surface)",
-        border: `1px solid ${selected ? "rgba(99,102,241,0.45)" : "var(--border)"}`,
-        boxShadow: selected
-          ? "0 0 0 1px rgba(99,102,241,0.18), 0 8px 32px rgba(0,0,0,0.35)"
-          : "0 1px 4px rgba(0,0,0,0.25)",
-        transition: "border-color .2s, box-shadow .2s",
+        background: selected ? "var(--surface-2)" : "var(--surface)",
+        border: `1px solid ${selected ? "rgba(67,97,238,0.5)" : "var(--border)"}`,
+        borderRadius: 20,
+        boxShadow: selected ? "0 0 0 1px rgba(67,97,238,0.2), 0 8px 32px rgba(0,0,0,0.4)" : "none",
+        transition: "border-color .2s, box-shadow .2s, background .2s",
+        overflow: "hidden",
       }}
     >
-      <div className="p-5">
+      <div style={{ padding: "20px 20px 16px" }}>
 
-        {/* ── Top row: checkbox + avatar + name + score ── */}
+        {/* Row 1: checkbox + avatar + name/industry + score */}
         <div className="flex items-start gap-3">
-
-          {/* Checkbox */}
           <button
             onClick={onToggle}
-            className="mt-1 shrink-0 cursor-pointer"
-            style={{ color: selected ? "#818cf8" : "rgba(241,240,250,0.22)", transition: "color .15s" }}
+            style={{ color: selected ? "#738ef5" : "rgba(255,255,255,0.2)", marginTop: 2, flexShrink: 0 }}
             aria-label={selected ? `Deselect ${company.name}` : `Select ${company.name}`}
           >
             {selected ? <CheckSquare size={16} /> : <Square size={16} />}
@@ -141,60 +194,55 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
 
           {/* Avatar */}
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
             style={{
-              background: `${color}18`,
-              color,
-              border: `1px solid ${color}28`,
-              fontSize: 15,
+              width: 40, height: 40, borderRadius: 12,
+              background: `${color}20`, color,
+              border: `1px solid ${color}35`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontWeight: 700, fontSize: 15, flexShrink: 0,
             }}
             aria-hidden
           >
             {company.name[0].toUpperCase()}
           </div>
 
-          {/* Name block */}
-          <div className="flex-1 min-w-0">
+          {/* Name + industry */}
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2
-                  className="text-[15px] font-semibold leading-snug truncate"
-                  style={{ color: "var(--text-1)", letterSpacing: "-0.01em" }}
-                >
+              <div style={{ minWidth: 0 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 600, color: "#fff", letterSpacing: "-0.01em", lineHeight: 1.3 }}>
                   {company.name}
                 </h2>
-                <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-3)" }}>
+                <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
                   {company.industry}
                 </p>
               </div>
-
-              {/* Fit score */}
+              {/* Fit score badge */}
               <span
-                className="mono text-xs font-medium shrink-0 px-2 py-0.5 rounded-lg"
+                className="mono shrink-0"
                 style={{
-                  color: fc,
-                  background: `${fc}14`,
-                  border: `1px solid ${fc}22`,
-                  marginTop: 1,
+                  fontSize: 12, fontWeight: 600, marginTop: 1,
+                  color: fc, background: `${fc}18`,
+                  border: `1px solid ${fc}28`,
+                  borderRadius: 8, padding: "2px 8px",
                 }}
-                title="Automation fit score"
               >
                 {company.automationScore}/10
               </span>
             </div>
 
-            {/* Meta row */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5">
+            {/* Meta chips */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ marginTop: 10 }}>
               {([
-                [<MapPin size={11} key="m" />, company.location],
-                [<Users size={11} key="u" />, company.size],
-                [<DollarSign size={11} key="d" />, company.revenue],
-                [<Calendar size={11} key="c" />, `Est. ${company.founded} · ${age}y`],
+                [<MapPin key="p" size={10} />,      company.location],
+                [<Users key="u" size={10} />,        company.size],
+                [<DollarSign key="d" size={10} />,   company.revenue],
+                [<Calendar key="c" size={10} />,     `Est. ${company.founded} · ${age}y`],
               ] as [React.ReactNode, string][]).map(([icon, val]) => (
                 <span
                   key={val}
-                  className="flex items-center gap-1 text-xs"
-                  style={{ color: "var(--text-3)" }}
+                  className="flex items-center gap-1"
+                  style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}
                 >
                   {icon} {val}
                 </span>
@@ -203,60 +251,58 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
           </div>
         </div>
 
-        {/* ── Divider ── */}
-        <div
-          style={{ height: 1, background: "var(--border)", margin: "16px 0 16px 52px" }}
-          role="separator"
-        />
+        {/* Divider */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "16px 0 16px 52px" }} />
 
-        {/* ── Contact ── */}
+        {/* Contact row */}
         <div className="flex items-center justify-between gap-3" style={{ paddingLeft: 52 }}>
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: "var(--text-1)" }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 500, color: "#fff", lineHeight: 1.3 }}>
               {company.contact.name}
             </p>
-            <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-3)" }}>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginTop: 2 }}>
               {company.contact.title}
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span
-              className="mono text-xs hidden md:block truncate max-w-[200px]"
-              style={{ color: "#818cf8" }}
+              className="mono hidden md:block"
+              style={{ fontSize: 11, color: "#738ef5", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
               {company.contact.email}
             </span>
             <button
               onClick={copyEmail}
-              className="p-1.5 rounded-lg cursor-pointer"
               style={{
-                color: copied ? "#4ade80" : "var(--text-4)",
-                background: copied ? "rgba(74,222,128,0.1)" : "transparent",
-                border: `1px solid ${copied ? "rgba(74,222,128,0.2)" : "transparent"}`,
+                padding: "6px", borderRadius: 8, cursor: "pointer",
+                color: copied ? "#2ed573" : "rgba(255,255,255,0.3)",
+                background: copied ? "rgba(46,213,115,0.1)" : "transparent",
+                border: `1px solid ${copied ? "rgba(46,213,115,0.25)" : "transparent"}`,
                 transition: "all .15s",
               }}
-              aria-label="Copy email address"
+              aria-label="Copy email"
             >
               {copied ? <Check size={12} /> : <Copy size={12} />}
             </button>
           </div>
         </div>
 
-        {/* ── Divider ── */}
-        <div style={{ height: 1, background: "var(--border)", margin: "16px 0" }} role="separator" />
+        {/* Divider */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "16px 0" }} />
 
-        {/* ── Bottom bar: status + actions ── */}
+        {/* Bottom: status pill + action buttons */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <StatusPill status={company.status} onChange={onStatusChange} />
 
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setExpanded(v => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer"
+              className="flex items-center gap-1.5"
               style={{
-                color: expanded ? "#818cf8" : "var(--text-3)",
-                background: expanded ? "rgba(99,102,241,0.1)" : "transparent",
-                border: `1px solid ${expanded ? "rgba(99,102,241,0.2)" : "var(--border)"}`,
+                padding: "6px 10px", borderRadius: 10, fontSize: 12, cursor: "pointer",
+                color: expanded ? "#738ef5" : "rgba(255,255,255,0.38)",
+                background: expanded ? "rgba(67,97,238,0.12)" : "transparent",
+                border: `1px solid ${expanded ? "rgba(67,97,238,0.3)" : "rgba(255,255,255,0.09)"}`,
                 transition: "all .15s",
               }}
               aria-expanded={expanded}
@@ -265,10 +311,7 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
               {company.automationOps.length} ops
               <ChevronDown
                 size={10}
-                style={{
-                  transition: "transform .2s ease",
-                  transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-                }}
+                style={{ transition: "transform .2s", transform: expanded ? "rotate(180deg)" : "none" }}
               />
             </button>
 
@@ -276,14 +319,13 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
               href={company.emailDocUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
+              className="flex items-center gap-1.5"
               style={{
-                color: "#818cf8",
-                background: "var(--indigo-dim)",
-                border: "1px solid var(--indigo-border)",
-                transition: "opacity .15s",
+                padding: "6px 12px", borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: "pointer",
+                color: "#738ef5", background: "rgba(67,97,238,0.12)", border: "1px solid rgba(67,97,238,0.28)",
+                transition: "opacity .15s", textDecoration: "none",
               }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = ".8")}
+              onMouseEnter={e => (e.currentTarget.style.opacity = ".75")}
               onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >
               <Mail size={11} /> Draft
@@ -293,31 +335,35 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
               href="https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 rounded-lg cursor-pointer"
-              style={{ color: "var(--text-3)", border: "1px solid var(--border)", transition: "all .15s" }}
-              aria-label="Open Google Drive folder"
-              onMouseEnter={e => { e.currentTarget.style.color = "var(--text-2)"; e.currentTarget.style.borderColor = "var(--border-mid)"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-3)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+              style={{
+                padding: "6px 10px", borderRadius: 10, cursor: "pointer",
+                color: "rgba(255,255,255,0.35)",
+                border: "1px solid rgba(255,255,255,0.09)", transition: "all .15s",
+                textDecoration: "none", display: "flex", alignItems: "center",
+              }}
+              aria-label="Drive folder"
+              onMouseEnter={e => { e.currentTarget.style.color = "rgba(255,255,255,0.65)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)"; }}
             >
               <FolderOpen size={13} />
             </a>
           </div>
         </div>
 
-        {/* ── Automation ops ── */}
+        {/* Expanded automation ops */}
         {expanded && (
-          <div className="mt-3 space-y-2 fade-up">
+          <div className="fade-up" style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {company.automationOps.map((op, i) => (
               <div
                 key={i}
-                className="flex items-start gap-3 px-3.5 py-2.5 rounded-xl text-sm"
+                className="flex items-start gap-3"
                 style={{
-                  background: "rgba(255,255,255,0.025)",
-                  border: "1px solid var(--border)",
-                  color: "var(--text-2)",
+                  padding: "10px 14px", borderRadius: 12, fontSize: 13,
+                  background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+                  color: "rgba(255,255,255,0.62)",
                 }}
               >
-                <ArrowRight size={13} className="shrink-0 mt-0.5" style={{ color: "#6366f1" }} />
+                <ArrowRight size={13} style={{ color: "#4361ee", flexShrink: 0, marginTop: 1 }} />
                 {op}
               </div>
             ))}
@@ -328,23 +374,25 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
   );
 }
 
-// ── StatCard ──────────────────────────────────────────────────────────────────
+// ── Stat card ─────────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, icon, accent }: {
   label: string; value: number; icon: React.ReactNode; accent?: string;
 }) {
   return (
     <div
-      className="rounded-2xl p-4 flex flex-col gap-3"
-      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      style={{
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: 20, padding: "18px 20px",
+        display: "flex", flexDirection: "column", gap: 10,
+      }}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium" style={{ color: "var(--text-3)" }}>{label}</span>
-        <span style={{ color: accent ?? "var(--text-4)" }}>{icon}</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.38)" }}>{label}</span>
+        <span style={{ color: accent ?? "rgba(255,255,255,0.22)" }}>{icon}</span>
       </div>
       <span
-        className="text-[2rem] font-bold leading-none tabular-nums"
-        style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}
+        style={{ fontSize: 36, fontWeight: 800, color: "#fff", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}
       >
         {value}
       </span>
@@ -352,11 +400,12 @@ function StatCard({ label, value, icon, accent }: {
   );
 }
 
-// ── PipelineBar ───────────────────────────────────────────────────────────────
+// ── Pipeline bar ──────────────────────────────────────────────────────────────
 
 function PipelineBar({ companies }: { companies: Company[] }) {
   const total = companies.length;
   if (!total) return null;
+
   const order: Company["status"][] = ["Meeting Booked", "Replied", "Sent", "Not Sent", "Closed"];
   const segs = order
     .map(s => ({ s, n: companies.filter(c => c.status === s).length }))
@@ -364,15 +413,15 @@ function PipelineBar({ companies }: { companies: Company[] }) {
 
   return (
     <div
-      className="rounded-2xl px-5 py-4 flex items-center gap-5"
-      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      className="flex items-center gap-4"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 20, padding: "16px 22px" }}
     >
-      <span className="text-xs font-medium shrink-0" style={{ color: "var(--text-3)" }}>Pipeline</span>
+      <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.38)", flexShrink: 0 }}>Pipeline</span>
       <div
-        className="flex flex-1 h-2 rounded-full overflow-hidden gap-px"
-        style={{ background: "rgba(255,255,255,0.05)" }}
+        className="flex flex-1 rounded-full overflow-hidden gap-px"
+        style={{ height: 8, background: "rgba(255,255,255,0.06)" }}
         role="img"
-        aria-label="Pipeline status distribution"
+        aria-label="Pipeline status breakdown"
       >
         {segs.map(({ s, n }) => (
           <div
@@ -381,16 +430,16 @@ function PipelineBar({ companies }: { companies: Company[] }) {
             style={{
               flex: n / total,
               background: STATUS[s].dot,
-              opacity: s === "Closed" || s === "Not Sent" ? 0.35 : 1,
-              transition: "flex .5s ease",
+              opacity: s === "Closed" || s === "Not Sent" ? 0.3 : 1,
+              transition: "flex .6s ease",
             }}
           />
         ))}
       </div>
       <div className="hidden sm:flex items-center gap-4 shrink-0">
-        {segs.map(({ s, n }) => (
-          <span key={s} className="flex items-center gap-1.5 text-xs" style={{ color: STATUS[s].text }}>
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS[s].dot }} />
+        {segs.filter(x => x.s !== "Not Sent" && x.s !== "Closed").map(({ s, n }) => (
+          <span key={s} className="flex items-center gap-1.5" style={{ fontSize: 11, color: STATUS[s].text }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS[s].dot }} />
             {n} {s}
           </span>
         ))}
@@ -399,17 +448,87 @@ function PipelineBar({ companies }: { companies: Company[] }) {
   );
 }
 
+// ── Live indicator ────────────────────────────────────────────────────────────
+
+function LiveDot({ source, updatedAt, loading }: {
+  source: "sheet" | "seed";
+  updatedAt: string | null;
+  loading: boolean;
+}) {
+  const [ago, setAgo] = useState("");
+
+  useEffect(() => {
+    if (!updatedAt) return;
+    const update = () => {
+      const diff = Math.round((Date.now() - new Date(updatedAt).getTime()) / 1000);
+      setAgo(diff < 60 ? `${diff}s ago` : `${Math.floor(diff / 60)}m ago`);
+    };
+    update();
+    const t = setInterval(update, 5000);
+    return () => clearInterval(t);
+  }, [updatedAt]);
+
+  return (
+    <div className="flex items-center gap-2">
+      {loading ? (
+        <RefreshCw size={11} className="spin" style={{ color: "rgba(255,255,255,0.4)" }} />
+      ) : (
+        <span
+          className="w-2 h-2 rounded-full"
+          style={{ background: source === "sheet" ? "#2ed573" : "#ffa502" }}
+          aria-label={source === "sheet" ? "Live — synced from Google Sheet" : "Offline — using local data"}
+        />
+      )}
+      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
+        {loading ? "Syncing…" : source === "sheet" ? `Live · ${ago}` : `Local · ${ago}`}
+      </span>
+    </div>
+  );
+}
+
 // ── Home ──────────────────────────────────────────────────────────────────────
+
+const REFRESH_MS = 30_000;
 
 export default function Home() {
   const [companies, setCompanies] = useState<Company[]>(initialCompanies);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
+  const [source, setSource]       = useState<"sheet" | "seed">("seed");
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [loading, setLoading]     = useState(false);
+
+  const [selected, setSelected]   = useState<Set<string>>(new Set());
+  const [search, setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
-  const [filterScore, setFilterScore] = useState(0);
-  const [showPrompt, setShowPrompt] = useState(false);
+  const [filterScore, setFilterScore]   = useState(0);
+  const [showPrompt, setShowPrompt]     = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
 
+  // ── Fetch from API route ──
+  const fetchCompanies = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/companies", { cache: "no-store" });
+      if (!res.ok) throw new Error("fetch failed");
+      const data = await res.json();
+      setCompanies(data.companies ?? initialCompanies);
+      setSource(data.source ?? "seed");
+      setUpdatedAt(data.updatedAt ?? new Date().toISOString());
+    } catch {
+      setSource("seed");
+      setUpdatedAt(new Date().toISOString());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial fetch + 30-second polling
+  useEffect(() => {
+    fetchCompanies();
+    const interval = setInterval(fetchCompanies, REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [fetchCompanies]);
+
+  // ── Filter ──
   const filtered = useMemo(() =>
     companies.filter(c => {
       const q = search.toLowerCase();
@@ -426,6 +545,11 @@ export default function Home() {
     [companies, search, filterStatus, filterScore]
   );
 
+  const avgScore = useMemo(() => {
+    if (!filtered.length) return 0;
+    return filtered.reduce((a, c) => a + c.automationScore, 0) / filtered.length;
+  }, [filtered]);
+
   const toggleSelect = (id: string) =>
     setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -438,6 +562,14 @@ export default function Home() {
 
   const updateStatus = (id: string, status: Company["status"]) =>
     setCompanies(p => p.map(c => c.id === id ? { ...c, status } : c));
+
+  const stats = {
+    total:    companies.length,
+    notSent:  companies.filter(c => c.status === "Not Sent").length,
+    sent:     companies.filter(c => c.status === "Sent").length,
+    meetings: companies.filter(c => c.status === "Meeting Booked").length,
+    highFit:  companies.filter(c => c.automationScore >= 8).length,
+  };
 
   const prompt = `Research 5 new companies for my AI automation outreach pipeline and add them to my Google Drive folder.
 
@@ -463,14 +595,6 @@ Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same
     setTimeout(() => setPromptCopied(false), 2000);
   };
 
-  const stats = {
-    total:    companies.length,
-    notSent:  companies.filter(c => c.status === "Not Sent").length,
-    sent:     companies.filter(c => c.status === "Sent").length,
-    meetings: companies.filter(c => c.status === "Meeting Booked").length,
-    highFit:  companies.filter(c => c.automationScore >= 8).length,
-  };
-
   return (
     <div className="min-h-dvh" style={{ background: "var(--bg)", position: "relative", zIndex: 1 }}>
 
@@ -478,70 +602,73 @@ Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same
       <header
         className="sticky top-0 z-40"
         style={{
-          background: "rgba(8,8,16,0.85)",
+          background: "rgba(7,12,32,0.88)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
         }}
       >
-        <div className="max-w-7xl mx-auto px-6 h-[58px] flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4" style={{ height: 58 }}>
+          {/* Logo */}
           <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
               style={{
-                background: "linear-gradient(135deg, #6366f1, #818cf8)",
-                boxShadow: "0 0 22px rgba(99,102,241,0.45)",
+                width: 34, height: 34, borderRadius: 10,
+                background: "linear-gradient(135deg, #4361ee, #738ef5)",
+                boxShadow: "0 0 24px rgba(67,97,238,0.5)",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}
             >
-              <Zap size={15} color="white" strokeWidth={2.5} aria-hidden />
+              <Zap size={16} color="white" strokeWidth={2.5} />
             </div>
-            <span
-              className="text-[15px] font-semibold"
-              style={{ color: "var(--text-1)", letterSpacing: "-0.015em" }}
-            >
-              Outreach Pipeline
-            </span>
+            <div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
+                Outreach Pipeline
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Right */}
+          <div className="flex items-center gap-2.5">
+            <LiveDot source={source} updatedAt={updatedAt} loading={loading} />
+
             {selected.size > 0 && (
               <span
-                className="px-3 py-1.5 rounded-lg text-xs font-medium"
                 style={{
-                  background: "var(--indigo-dim)",
-                  border: "1px solid var(--indigo-border)",
-                  color: "#818cf8",
+                  padding: "6px 12px", borderRadius: 10, fontSize: 12, fontWeight: 500,
+                  background: "rgba(67,97,238,0.12)", border: "1px solid rgba(67,97,238,0.3)",
+                  color: "#738ef5",
                 }}
               >
                 {selected.size} selected
               </span>
             )}
+
             <a
               href="https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer"
+              target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5"
               style={{
-                color: "var(--text-2)",
-                border: "1px solid var(--border)",
-                transition: "background .15s",
+                padding: "7px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500,
+                color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.09)",
+                textDecoration: "none", transition: "background .15s",
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
               <FolderOpen size={14} />
               <span className="hidden sm:inline">Drive</span>
             </a>
+
             <button
               onClick={() => setShowPrompt(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+              className="flex items-center gap-1.5"
               style={{
-                background: "linear-gradient(135deg, #6366f1, #818cf8)",
-                color: "white",
-                boxShadow: "0 2px 12px rgba(99,102,241,0.35)",
-                transition: "opacity .15s, transform .15s",
+                padding: "7px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                background: "linear-gradient(135deg, #4361ee, #738ef5)", color: "#fff",
+                boxShadow: "0 2px 14px rgba(67,97,238,0.4)", transition: "opacity .15s",
               }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = ".9")}
+              onMouseEnter={e => (e.currentTarget.style.opacity = ".88")}
               onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >
               <Plus size={14} strokeWidth={2.5} />
@@ -553,105 +680,114 @@ Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-5">
 
-        {/* ── Stats ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* ── Hero: stats + gauge ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <StatCard label="Total"    value={stats.total}    icon={<TrendingUp size={14} />} />
           <StatCard label="Queued"   value={stats.notSent}  icon={<Clock size={14} />} />
-          <StatCard label="Sent"     value={stats.sent}     icon={<Mail size={14} />}     accent="#fb923c" />
-          <StatCard label="Meetings" value={stats.meetings} icon={<Calendar size={14} />} accent="#4ade80" />
-          <StatCard label="High Fit" value={stats.highFit}  icon={<Zap size={14} />}      accent="#818cf8" />
+          <StatCard label="Sent"     value={stats.sent}     icon={<Mail size={14} />}     accent="#ffa502" />
+          <StatCard label="Meetings" value={stats.meetings} icon={<Calendar size={14} />} accent="#2ed573" />
+          <StatCard label="High Fit" value={stats.highFit}  icon={<Zap size={14} />}      accent="#738ef5" />
+
+          {/* Score gauge — spans last col */}
+          <div
+            style={{
+              background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 20,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: "12px 0",
+            }}
+          >
+            <ScoreGauge score={avgScore || 0} label="Avg Fit Score" />
+          </div>
         </div>
 
         {/* ── Pipeline bar ── */}
         <PipelineBar companies={companies} />
 
-        {/* ── Filter bar ── */}
+        {/* ── Filters ── */}
         <div
-          className="rounded-2xl p-2.5 flex flex-wrap items-center gap-2"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+          style={{
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 20,
+            padding: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center",
+          }}
         >
-          {/* Search input */}
+          {/* Search */}
           <label
-            className="flex items-center gap-2.5 flex-1 min-w-[220px] px-3.5 py-2.5 rounded-xl cursor-text"
-            style={{ background: "var(--input)", border: "1px solid var(--border)" }}
+            className="flex items-center gap-2.5 flex-1"
+            style={{
+              minWidth: 220, padding: "10px 14px", borderRadius: 14,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", cursor: "text",
+            }}
           >
-            <Search size={13} style={{ color: "var(--text-4)", flexShrink: 0 }} aria-hidden />
+            <Search size={13} style={{ color: "rgba(255,255,255,0.25)", flexShrink: 0 }} aria-hidden />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search companies, contacts…"
-              className="bg-transparent text-sm flex-1 outline-none"
-              style={{ color: "var(--text-1)" }}
-              aria-label="Search"
+              className="bg-transparent flex-1 outline-none"
+              style={{ fontSize: 13, color: "#fff" }}
+              aria-label="Search companies"
             />
             {search && (
-              <button
-                onClick={() => setSearch("")}
-                style={{ color: "var(--text-3)" }}
-                aria-label="Clear search"
-              >
+              <button onClick={() => setSearch("")} aria-label="Clear search" style={{ color: "rgba(255,255,255,0.3)" }}>
                 <X size={12} />
               </button>
             )}
           </label>
 
-          <select
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="text-sm px-3 py-2.5 rounded-xl outline-none cursor-pointer"
-            style={{
-              background: "var(--input)",
-              border: "1px solid var(--border)",
-              color: "var(--text-2)",
-            }}
-            aria-label="Filter by status"
-          >
-            {["All", "Not Sent", "Sent", "Replied", "Meeting Booked", "Closed"].map(s => (
-              <option key={s} value={s} style={{ background: "var(--surface-2)" }}>{s}</option>
-            ))}
-          </select>
-
-          <select
-            value={filterScore}
-            onChange={e => setFilterScore(Number(e.target.value))}
-            className="text-sm px-3 py-2.5 rounded-xl outline-none cursor-pointer"
-            style={{
-              background: "var(--input)",
-              border: "1px solid var(--border)",
-              color: "var(--text-2)",
-            }}
-            aria-label="Filter by fit score"
-          >
-            <option value={0} style={{ background: "var(--surface-2)" }}>Any fit score</option>
-            <option value={7} style={{ background: "var(--surface-2)" }}>7+ fit</option>
-            <option value={8} style={{ background: "var(--surface-2)" }}>8+ fit</option>
-            <option value={9} style={{ background: "var(--surface-2)" }}>9+ fit</option>
-          </select>
+          {[
+            {
+              value: filterStatus,
+              onChange: (v: string) => setFilterStatus(v),
+              options: [["All", "All Status"], ["Not Sent", "Not Sent"], ["Sent", "Sent"],
+                        ["Replied", "Replied"], ["Meeting Booked", "Meeting Booked"], ["Closed", "Closed"]],
+              label: "Filter by status",
+            },
+            {
+              value: String(filterScore),
+              onChange: (v: string) => setFilterScore(Number(v)),
+              options: [["0", "Any Fit Score"], ["7", "7+ fit"], ["8", "8+ fit"], ["9", "9+ fit"]],
+              label: "Filter by fit score",
+            },
+          ].map(({ value, onChange, options, label }) => (
+            <select
+              key={label}
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              aria-label={label}
+              style={{
+                padding: "10px 12px", borderRadius: 14, fontSize: 13, outline: "none", cursor: "pointer",
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                color: "rgba(255,255,255,0.62)",
+              }}
+            >
+              {options.map(([val, text]) => (
+                <option key={val} value={val} style={{ background: "#131d3f" }}>{text}</option>
+              ))}
+            </select>
+          ))}
 
           <button
             onClick={selectAll}
-            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer"
+            className="flex items-center gap-2"
             style={{
-              color: "var(--text-3)",
-              border: "1px solid var(--border)",
+              padding: "10px 14px", borderRadius: 14, fontSize: 13, cursor: "pointer",
+              color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.08)",
               transition: "background .15s",
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
-            {selected.size === filtered.length && filtered.length > 0
-              ? <CheckSquare size={13} />
-              : <Square size={13} />}
+            {selected.size === filtered.length && filtered.length > 0 ? <CheckSquare size={13} /> : <Square size={13} />}
             {selected.size === filtered.length && filtered.length > 0 ? "Deselect all" : "Select all"}
           </button>
 
-          <p className="ml-auto text-xs" style={{ color: "var(--text-4)" }}>
-            {filtered.length} of {companies.length} companies
-          </p>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "rgba(255,255,255,0.28)" }}>
+            {filtered.length} of {companies.length}
+          </span>
         </div>
 
-        {/* ── Card grid ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* ── Company cards ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(460px, 1fr))", gap: 14 }}>
           {filtered.map(c => (
             <CompanyCard
               key={c.id}
@@ -667,14 +803,19 @@ Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same
         {filtered.length === 0 && (
           <div className="flex flex-col items-center py-24 gap-4 fade-up">
             <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              style={{
+                width: 56, height: 56, borderRadius: 18,
+                background: "var(--surface)", border: "1px solid var(--border)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
             >
-              <Search size={22} style={{ color: "var(--text-4)" }} aria-hidden />
+              <Search size={22} style={{ color: "rgba(255,255,255,0.2)" }} />
             </div>
-            <div className="text-center">
-              <p className="text-sm font-medium" style={{ color: "var(--text-3)" }}>No companies found</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-4)" }}>Try adjusting your search or filters</p>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.38)" }}>No companies found</p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", marginTop: 4 }}>
+                Try adjusting your search or filters
+              </p>
             </div>
           </div>
         )}
@@ -684,100 +825,97 @@ Also add a row per company to the spreadsheet "AI Outreach Tracker" in that same
       {showPrompt && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
           onClick={e => e.target === e.currentTarget && setShowPrompt(false)}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
         >
           <div
-            className="w-full max-w-xl rounded-2xl p-6 space-y-4 scale-in"
+            className="w-full max-w-xl scale-in"
             style={{
-              background: "var(--surface)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+              background: "var(--surface-2)", borderRadius: 24,
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 40px 100px rgba(0,0,0,0.85)",
+              padding: 24,
+              display: "flex", flexDirection: "column", gap: 16,
             }}
           >
-            {/* Header */}
             <div className="flex items-start justify-between">
               <div>
-                <h2
-                  id="modal-title"
-                  className="text-base font-semibold"
-                  style={{ color: "var(--text-1)", letterSpacing: "-0.01em" }}
-                >
+                <h2 id="modal-title" style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>
                   Research New Companies
                 </h2>
-                <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>
-                  Copy prompt → paste into Claude → Claude handles the rest automatically
+                <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
+                  Copy → paste into Claude → it researches and adds to your Drive automatically
                 </p>
               </div>
               <button
                 onClick={() => setShowPrompt(false)}
-                className="p-1.5 rounded-lg cursor-pointer"
-                style={{ color: "var(--text-3)", transition: "background .15s" }}
+                style={{
+                  padding: 6, borderRadius: 8, cursor: "pointer",
+                  color: "rgba(255,255,255,0.35)", transition: "background .15s",
+                }}
                 aria-label="Close"
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Prompt text */}
             <pre
-              className="mono text-xs leading-relaxed rounded-xl p-4 overflow-y-auto"
+              className="mono"
               style={{
-                background: "var(--input)",
-                border: "1px solid var(--border)",
-                color: "var(--text-2)",
-                whiteSpace: "pre-wrap",
-                maxHeight: 220,
+                fontSize: 11, lineHeight: 1.7, borderRadius: 14, padding: 16,
+                background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.07)",
+                color: "rgba(255,255,255,0.55)", whiteSpace: "pre-wrap",
+                maxHeight: 220, overflowY: "auto",
               }}
             >
               {prompt}
             </pre>
 
-            {/* Actions */}
             <div className="flex gap-2.5">
               <button
                 onClick={copyPrompt}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-2"
                 style={{
-                  background: "linear-gradient(135deg, #6366f1, #818cf8)",
-                  color: "white",
-                  transition: "opacity .15s",
+                  padding: "13px 0", borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  background: "linear-gradient(135deg, #4361ee, #738ef5)", color: "#fff",
+                  boxShadow: "0 4px 16px rgba(67,97,238,0.4)", transition: "opacity .15s",
                 }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = ".9")}
+                onMouseEnter={e => (e.currentTarget.style.opacity = ".88")}
                 onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
               >
                 {promptCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy Prompt</>}
               </button>
               <a
                 href="https://claude.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-5 rounded-xl text-sm font-medium cursor-pointer"
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2"
                 style={{
-                  color: "var(--text-2)",
-                  border: "1px solid var(--border)",
-                  transition: "background .15s",
+                  padding: "13px 20px", borderRadius: 14, fontSize: 14, fontWeight: 500, cursor: "pointer",
+                  color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.1)",
+                  textDecoration: "none", transition: "background .15s",
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
                 <ExternalLink size={14} /> Claude
               </a>
             </div>
 
-            {/* Info */}
             <div
-              className="flex items-start gap-3 p-3.5 rounded-xl"
-              style={{ background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.14)" }}
+              className="flex items-start gap-3"
+              style={{
+                padding: "12px 14px", borderRadius: 14,
+                background: "rgba(46,213,115,0.07)", border: "1px solid rgba(46,213,115,0.18)",
+              }}
             >
-              <RefreshCw size={12} className="shrink-0 mt-0.5" style={{ color: "#4ade80" }} aria-hidden />
-              <p className="text-xs leading-relaxed" style={{ color: "rgba(74,222,128,0.8)" }}>
-                Claude will research companies, write personalized emails, create Drive docs, and update the Outreach Tracker spreadsheet.
+              <RefreshCw size={12} style={{ color: "#2ed573", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, lineHeight: 1.65, color: "rgba(46,213,115,0.85)" }}>
+                Claude researches companies, writes personalized emails, creates Drive docs, and updates the Outreach Tracker spreadsheet — then this dashboard syncs automatically.
               </p>
             </div>
           </div>
