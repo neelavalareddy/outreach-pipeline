@@ -587,7 +587,12 @@ https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F
 
 Each doc should follow the same format as the existing ones in the folder (contact info at top, email draft, notes section at bottom).
 
-Add a row per company to the spreadsheet "AI Outreach Tracker" in that same folder.
+SPREADSHEET RULE — read this carefully:
+There is ONE tracker spreadsheet. You must ONLY ever write to this exact file:
+https://docs.google.com/spreadsheets/d/1hgJAjxsJIJ1jeya-LdIBMNuzTC2VNMZEeGhYSELDOXg/edit?gid=744490762#gid=744490762
+
+Do NOT create a new spreadsheet. Do NOT duplicate it. Do NOT write to any other file. Open this URL directly and append one new row per company. If anything prevents you from writing to it, stop and report the error — do not fall back to creating a new file.
+
 The spreadsheet columns are (in order):
 Company Name | Industry | Founded | Size | Revenue | Location | Contact Name | Contact Title | Contact Email | Automation Opportunities | Email Doc Link | Status | Last Contacted | Follow-Up Date | Notes | Automation Score
 
