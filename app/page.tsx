@@ -624,6 +624,10 @@ https://drive.google.com/drive/folders/1Vy0ykzK-jj71M5Fs9SE0IsvdfhabHX0F
 
 Each doc should follow the same format as the existing ones in the folder (contact info at top, email draft, notes section at bottom).
 
+COMPLETED FOLDER RULE:
+If a company's status is Closed (deal won, lost, or no longer active), move its Google Doc to the Completed folder instead:
+https://drive.google.com/drive/folders/17IsKj4gt9qmZPznbp33EKj38A0NOMm5T
+
 SPREADSHEET RULE — read this carefully:
 There is ONE tracker spreadsheet. You must ONLY ever write to this exact file:
 https://docs.google.com/spreadsheets/d/1hgJAjxsJIJ1jeya-LdIBMNuzTC2VNMZEeGhYSELDOXg/edit?gid=744490762#gid=744490762
