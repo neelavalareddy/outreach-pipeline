@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search, ExternalLink, Mail, Users, DollarSign, MapPin,
   Calendar, ChevronDown, CheckSquare, Square, Zap, FolderOpen,
-  Plus, TrendingUp, Clock, RefreshCw, X, Copy, Check, ArrowRight,
+  Plus, TrendingUp, Clock, RefreshCw, X, Copy, Check, ArrowRight, Trash2,
 } from "lucide-react";
 import { initialCompanies, type Company } from "./data/companies";
 
@@ -151,11 +151,12 @@ function StatusPill({ status, onChange }: {
 
 // ── Company card ──────────────────────────────────────────────────────────────
 
-function CompanyCard({ company, selected, onToggle, onStatusChange }: {
+function CompanyCard({ company, selected, onToggle, onStatusChange, onDelete }: {
   company: Company;
   selected: boolean;
   onToggle: () => void;
   onStatusChange: (s: Company["status"]) => void;
+  onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -347,6 +348,21 @@ function CompanyCard({ company, selected, onToggle, onStatusChange }: {
             >
               <FolderOpen size={13} />
             </a>
+
+            <button
+              onClick={onDelete}
+              style={{
+                padding: "6px 10px", borderRadius: 10, cursor: "pointer",
+                color: "rgba(255,255,255,0.25)",
+                border: "1px solid rgba(255,255,255,0.09)", transition: "all .15s",
+                display: "flex", alignItems: "center", background: "transparent",
+              }}
+              aria-label={`Remove ${company.name}`}
+              onMouseEnter={e => { e.currentTarget.style.color = "#ff4757"; e.currentTarget.style.borderColor = "rgba(255,71,87,0.35)"; e.currentTarget.style.background = "rgba(255,71,87,0.08)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.25)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)"; e.currentTarget.style.background = "transparent"; }}
+            >
+              <Trash2 size={13} />
+            </button>
           </div>
         </div>
 
@@ -496,6 +512,13 @@ export default function Home() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading]     = useState(false);
 
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("outreach-hidden");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+
   const [selected, setSelected]   = useState<Set<string>>(new Set());
   const [search, setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -528,11 +551,25 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [fetchCompanies]);
 
+  const hideCompany = (id: string) =>
+    setHiddenIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem("outreach-hidden", JSON.stringify([...next]));
+      return next;
+    });
+
+  const showAll = () => {
+    setHiddenIds(new Set());
+    localStorage.removeItem("outreach-hidden");
+  };
+
   // ── Filter ──
   const filtered = useMemo(() =>
     companies.filter(c => {
       const q = search.toLowerCase();
       return (
+        !hiddenIds.has(c.id) &&
         (!search ||
           c.name.toLowerCase().includes(q) ||
           c.industry.toLowerCase().includes(q) ||
@@ -542,7 +579,7 @@ export default function Home() {
         c.automationScore >= filterScore
       );
     }),
-    [companies, search, filterStatus, filterScore]
+    [companies, hiddenIds, search, filterStatus, filterScore]
   );
 
   const avgScore = useMemo(() => {
@@ -791,9 +828,26 @@ Status should be one of: Not Sent, Sent, Replied, Meeting Booked, Closed (defaul
             {selected.size === filtered.length && filtered.length > 0 ? "Deselect all" : "Select all"}
           </button>
 
-          <span style={{ marginLeft: "auto", fontSize: 12, color: "rgba(255,255,255,0.28)" }}>
-            {filtered.length} of {companies.length}
-          </span>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            {hiddenIds.size > 0 && (
+              <button
+                onClick={showAll}
+                style={{
+                  fontSize: 12, cursor: "pointer", background: "transparent",
+                  color: "rgba(255,71,87,0.7)", border: "none", padding: 0,
+                  display: "flex", alignItems: "center", gap: 4,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#ff4757")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,71,87,0.7)")}
+              >
+                <Trash2 size={11} />
+                {hiddenIds.size} hidden · Show all
+              </button>
+            )}
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.28)" }}>
+              {filtered.length} of {companies.length - hiddenIds.size}
+            </span>
+          </div>
         </div>
 
         {/* ── Company cards ── */}
@@ -805,6 +859,7 @@ Status should be one of: Not Sent, Sent, Replied, Meeting Booked, Closed (defaul
               selected={selected.has(c.id)}
               onToggle={() => toggleSelect(c.id)}
               onStatusChange={s => updateStatus(c.id, s)}
+              onDelete={() => hideCompany(c.id)}
             />
           ))}
         </div>
