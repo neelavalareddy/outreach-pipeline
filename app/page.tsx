@@ -571,7 +571,7 @@ export default function Home() {
     highFit:  companies.filter(c => c.automationScore >= 8).length,
   };
 
-  const prompt = `Research 5 new companies for my AI automation outreach pipeline and add them to my Google Drive folder.
+  const prompt = `Research 2 new companies for my AI automation outreach pipeline and add them to my Google Drive folder.
 
 For each company find:
 - Company name, industry, founded year, employee size, revenue range, US location
