@@ -178,7 +178,6 @@ function CompanyCard({ company, selected, onToggle, onStatusChange, onDelete }: 
         borderRadius: 20,
         boxShadow: selected ? "0 0 0 1px rgba(67,97,238,0.2), 0 8px 32px rgba(0,0,0,0.4)" : "none",
         transition: "border-color .2s, box-shadow .2s, background .2s",
-        overflow: "hidden",
       }}
     >
       <div style={{ padding: "20px 20px 16px" }}>
