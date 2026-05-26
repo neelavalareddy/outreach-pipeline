@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Search, ExternalLink, Mail, Users, DollarSign, MapPin,
   Calendar, ChevronDown, CheckSquare, Square, Zap, FolderOpen,
@@ -94,13 +95,24 @@ function StatusPill({ status, onChange }: {
   onChange: (s: Company["status"]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
   const all: Company["status"][] = ["Not Sent", "Sent", "Replied", "Meeting Booked", "Closed"];
   const cfg = STATUS[status];
 
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + window.scrollY + 6, left: r.left + window.scrollX });
+    }
+    setOpen(v => !v);
+  };
+
   return (
-    <div className="relative">
+    <div>
       <button
-        onClick={() => setOpen(v => !v)}
+        ref={btnRef}
+        onClick={handleOpen}
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer"
         style={{ color: cfg.text, background: cfg.bg, border: `1px solid ${cfg.border}` }}
         aria-haspopup="listbox"
@@ -111,15 +123,19 @@ function StatusPill({ status, onChange }: {
         <ChevronDown size={10} style={{ opacity: 0.6 }} />
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="listbox"
-            className="absolute right-0 top-full mt-2 z-50 rounded-2xl overflow-hidden slide-down"
+            className="rounded-2xl overflow-hidden slide-down"
             style={{
-              background: "var(--surface-3)",
-              border: "1px solid var(--border-mid)",
+              position: "absolute",
+              top: pos.top,
+              left: pos.left,
+              zIndex: 9999,
+              background: "#131d3f",
+              border: "1px solid rgba(255,255,255,0.12)",
               minWidth: 172,
               boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
             }}
@@ -143,7 +159,8 @@ function StatusPill({ status, onChange }: {
               );
             })}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
