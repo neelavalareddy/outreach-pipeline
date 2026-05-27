@@ -95,7 +95,7 @@ function StatusPill({ status, onChange }: {
   onChange: (s: Company["status"]) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos]   = useState({ top: 0, left: 0, alignRight: false });
   const btnRef = useRef<HTMLButtonElement>(null);
   const all: Company["status"][] = ["Not Sent", "Sent", "Replied", "Meeting Booked", "Closed"];
   const cfg = STATUS[status];
@@ -103,9 +103,19 @@ function StatusPill({ status, onChange }: {
   const handleOpen = () => {
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + window.scrollY + 6, left: r.left + window.scrollX });
+      const alignRight = r.left + 200 > window.innerWidth;
+      setPos({
+        top: r.bottom + window.scrollY + 6,
+        left: alignRight ? r.right + window.scrollX - 200 : r.left + window.scrollX,
+        alignRight,
+      });
     }
     setOpen(v => !v);
+  };
+
+  const handleSelect = (s: Company["status"]) => {
+    setOpen(false);
+    if (s !== status) onChange(s);
   };
 
   return (
@@ -114,13 +124,23 @@ function StatusPill({ status, onChange }: {
         ref={btnRef}
         onClick={handleOpen}
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer"
-        style={{ color: cfg.text, background: cfg.bg, border: `1px solid ${cfg.border}` }}
+        style={{
+          color: cfg.text,
+          background: cfg.bg,
+          border: `1px solid ${cfg.border}`,
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dot }} />
+        <span
+          className="w-1.5 h-1.5 rounded-full shrink-0"
+          style={{ background: cfg.dot, transition: "background .2s" }}
+        />
         {status}
-        <ChevronDown size={10} style={{ opacity: 0.6 }} />
+        <ChevronDown
+          size={10}
+          style={{ opacity: 0.55, transition: "transform .2s", transform: open ? "rotate(180deg)" : "none" }}
+        />
       </button>
 
       {open && typeof document !== "undefined" && createPortal(
@@ -128,36 +148,59 @@ function StatusPill({ status, onChange }: {
           <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="listbox"
-            className="rounded-2xl overflow-hidden slide-down"
+            className="slide-down"
             style={{
               position: "absolute",
               top: pos.top,
               left: pos.left,
               zIndex: 9999,
-              background: "#131d3f",
-              border: "1px solid rgba(255,255,255,0.12)",
-              minWidth: 172,
-              boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+              background: "rgba(13,19,48,0.98)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              borderRadius: 16,
+              minWidth: 200,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)",
+              overflow: "hidden",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
             }}
           >
-            {all.map(s => {
-              const c = STATUS[s];
-              return (
-                <button
-                  key={s}
-                  role="option"
-                  aria-selected={s === status}
-                  onClick={() => { onChange(s); setOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-left cursor-pointer"
-                  style={{ color: c.text }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c.dot }} />
-                  {s}
-                </button>
-              );
-            })}
+            <div style={{ padding: "10px 14px 6px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: "rgba(255,255,255,0.28)", textTransform: "uppercase" }}>
+                Status
+              </span>
+            </div>
+            <div style={{ padding: "6px 6px" }}>
+              {all.map(s => {
+                const c = STATUS[s];
+                const isSelected = s === status;
+                return (
+                  <button
+                    key={s}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelect(s)}
+                    className="w-full flex items-center gap-2.5 text-sm text-left cursor-pointer"
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 10,
+                      color: isSelected ? c.text : "rgba(255,255,255,0.65)",
+                      background: isSelected ? c.bg : "transparent",
+                      fontWeight: isSelected ? 500 : 400,
+                      transition: "background .1s, color .1s",
+                    }}
+                    onMouseEnter={e => !isSelected && (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                    onMouseLeave={e => !isSelected && (e.currentTarget.style.background = "transparent")}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: c.dot, boxShadow: isSelected ? `0 0 6px ${c.dot}88` : "none" }}
+                    />
+                    <span style={{ flex: 1 }}>{s}</span>
+                    {isSelected && <Check size={12} style={{ color: c.dot, opacity: 0.9 }} />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>,
         document.body
@@ -613,8 +656,14 @@ export default function Home() {
         : new Set(filtered.map(c => c.id))
     );
 
-  const updateStatus = (id: string, status: Company["status"]) =>
+  const updateStatus = useCallback((id: string, status: Company["status"]) => {
     setCompanies(p => p.map(c => c.id === id ? { ...c, status } : c));
+    fetch("/api/status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_id: id, status }),
+    });
+  }, []);
 
   const stats = {
     total:    companies.length,

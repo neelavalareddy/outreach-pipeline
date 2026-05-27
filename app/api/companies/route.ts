@@ -123,15 +123,44 @@ function parseSheet(csv: string): Company[] {
   return companies;
 }
 
+// ── Status overrides (Supabase) ───────────────────────────────────────────────
+
+async function getStatusOverrides(): Promise<Map<string, Company["status"]>> {
+  const url     = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return new Map();
+
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/status_overrides?select=company_id,status`,
+      {
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+        },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (!res.ok) return new Map();
+    const rows: { company_id: string; status: string }[] = await res.json();
+    return new Map(rows.map(r => [r.company_id, toStatus(r.status)]));
+  } catch {
+    return new Map();
+  }
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET() {
   const csvUrl = process.env.SHEET_CSV_URL;
 
+  const overrides = await getStatusOverrides();
+  const applyOverrides = (list: Company[]) =>
+    list.map(c => overrides.has(c.id) ? { ...c, status: overrides.get(c.id)! } : c);
+
   if (!csvUrl) {
-    // No sheet configured — return hardcoded seed data
     return Response.json({
-      companies: initialCompanies,
+      companies: applyOverrides(initialCompanies),
       source: "seed",
       updatedAt: new Date().toISOString(),
     });
@@ -153,7 +182,7 @@ export async function GET() {
 
     if (companies.length === 0) {
       return Response.json({
-        companies: initialCompanies,
+        companies: applyOverrides(initialCompanies),
         source: "seed",
         updatedAt: new Date().toISOString(),
         warning: "Sheet returned 0 companies — using seed data",
@@ -161,7 +190,7 @@ export async function GET() {
     }
 
     return Response.json({
-      companies,
+      companies: applyOverrides(companies),
       source: "sheet",
       updatedAt: new Date().toISOString(),
     });
